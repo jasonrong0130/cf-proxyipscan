@@ -229,6 +229,23 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				runOfficialSpeedBatch(ctx, session, params.Port, params.URL, params.SpeedLimit, params.SpeedMin, params.Results, params.SkipTested)
 			})
 		},
+		"start_proxy_task": func(data json.RawMessage) {
+			var params proxyLocalTaskRequest
+			if err := json.Unmarshal(data, &params); err != nil {
+				session.sendWSMessage("error", "start_proxy_task 参数解析失败")
+				return
+			}
+			if strings.TrimSpace(params.FileContent) == "" {
+				session.sendWSMessage("error", "请先导入候选 IP")
+				return
+			}
+			session.startTaskNamed("ProxyIP 本地优选", "proxy", map[string]interface{}{
+				"fileName": params.FileName, "sniConfigured": strings.TrimSpace(params.SNI) != "",
+				"mode": params.Mode, "threads": params.Threads,
+			}, func(ctx context.Context, session *appSession) {
+				runProxyLocalTask(ctx, session, params)
+			})
+		},
 		"start_nsb_task": func(data json.RawMessage) {
 			var params startNSBTaskRequest
 			if err := json.Unmarshal(data, &params); err != nil {

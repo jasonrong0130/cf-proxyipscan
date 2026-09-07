@@ -25,12 +25,12 @@ type latestReleaseInfo struct {
 }
 
 func getLatestRelease(ctx context.Context) (latestReleaseInfo, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/repos/PoemMisty/CFData-WEB/releases/latest", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/repos/jasonrong0130/cf-proxyipscan/releases/latest", nil)
 	if err != nil {
 		return latestReleaseInfo{}, err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "CFData-WEB/"+appVersion)
+	req.Header.Set("User-Agent", "ProxyIP Optimizer/"+appVersion)
 	ctx, cancel := context.WithTimeout(ctx, 6*time.Second)
 	defer cancel()
 	resp, err := upstreamHTTPClient.Do(req.WithContext(ctx))
@@ -249,7 +249,7 @@ func main() {
 		addr = fmt.Sprintf("%s:%d", strings.TrimSpace(listenHost), listenPort)
 		displayHost = strings.TrimSpace(listenHost)
 	}
-	fmt.Printf("CFData-WEB 版本: %s\n", appVersion)
+	fmt.Printf("ProxyIP Optimizer 版本: %s\n", appVersion)
 	go checkAndPrintUpdate("")
 	displayURL := fmt.Sprintf("http://%s:%d", displayHost, listenPort)
 	if webUser != "" && webPassword != "" {

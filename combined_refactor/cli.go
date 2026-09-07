@@ -1332,7 +1332,7 @@ func printCLIConfig(cfg *cliConfig) {
 		}
 	}
 
-	fmt.Printf("%s %s\n", colorize("CFData-WEB 版本:", ansiBold+ansiGreen), appVersion)
+	fmt.Printf("%s %s\n", colorize("ProxyIP Optimizer 版本:", ansiBold+ansiGreen), appVersion)
 	checkAndPrintUpdate("")
 	fmt.Println(colorize("[cli-config] 当前命令参数", ansiBold+ansiGreen))
 	printGroup("通用参数", []item{

@@ -1,172 +1,54 @@
-# CFData-Web
+# ProxyIP Optimizer
 
-CFData-Web 是一个基于 Go 的 Cloudflare IP 测试与筛选工具，提供本地 Web 与 CLI 两种使用方式，支持官方 IP 段扫描、非标目标测试、测速、结果筛选、导出和 GitHub 上传。
+一个轻量的 **本地 ProxyIP 优选工具**，核心使用 Go，本地 Web UI 使用原生 HTML / CSS / JavaScript，不依赖 Electron。
 
-[在线演示站](https://cfdata-demo.cce.de5.net/) 仅使用浏览器内虚拟数据，用于预览界面与交互；真实使用请下载正式版本。
+## 当前目标
 
-![image](img/demo.png)
+VPS 端负责大规模海选 ProxyIP；本工具负责在你的 Windows / macOS / Linux **当前真实网络**下进行最终优选。
 
-### 更新说明
+与传统 CF 优选判定不同，本项目的 ProxyIP 模式遵循：
 
-项目功能已趋于完善，基本达到了作者预期的效果。后续更新将以维护和新功能为主，版本迭代频率会有所降低。如果你在使用过程中有新的需求或建议，欢迎提交 Issue，作者会在评估后酌情纳入后续版本。
+- 不使用固定 `speed.cloudflare.com` 作为“是否可用”的唯一标准。
+- SNI 默认留空；建议填入你实际使用的 SNI。
+- Host 默认跟随 SNI，仅在高级设置中允许单独覆盖。
+- TCP / TLS / HTTP 多次复检，单次失败不会直接淘汰。
+- HTTP 4xx / 5xx 只要真实 TLS + HTTP 链路建立成功，仍作为链路证据记录，不直接判死。
+- `/cdn-cgi/trace` 没有 `colo` 不再一票否决。
+- 失败节点分为“边缘”和“失败”，尽量减少实际可用节点被误杀。
+- 精准模式的公共测速仅用于参考；测速失败不会改变真实可用判定。
 
-## 功能
+## 使用流程
 
-- 官方优选：扫描 Cloudflare IPv4/IPv6，按数据中心继续详细延迟测试。
-- 非标优选：上传本地 txt/csv 或填写网络 URL，测试自定义 IP/域名与端口。
-- 测速：支持单点测速、批量测速、非标并发测速和测速阈值筛选。
-- 导出：支持 CSV/TXT、自定义字段、IP 类型筛选、合格结果筛选。
-- 上传：支持将导出结果上传到 GitHub。
-- APK：支持 Android WebView 壳运行内置后端。
+1. 从 VPS ProxyIP Scanner 导出候选 `IP:端口`。
+2. 在本机运行 ProxyIP Optimizer。
+3. 导入 TXT / CSV，填写实际 SNI。
+4. 选择 极速 / 标准 / 精准。
+5. 根据成功率、TCP、TLS、TTFB、CF 确认、参考速度和评分挑选 Top 节点。
 
-## 快速开始
+SNI、Host 等个人配置只保存在浏览器 `localStorage`，源码默认值不包含任何个人域名。
 
-从 [Releases](https://github.com/PoemMisty/CFData-WEB/releases/latest) 下载对应平台程序后运行。
+## 构建
 
-默认启动 Web 模式：
-
-```text
-服务启动于 http://localhost:13335
-当前测速网址: auto
-```
-
-浏览器打开终端中的地址即可使用。
-
-CLI 模式：
+正式后端位于 `combined_refactor/`：
 
 ```bash
-./cfdata-linux-amd64 -cli
+cd combined_refactor
+go build -trimpath -ldflags "-s -w" -o proxyip-optimizer .
 ```
 
-首次使用 CLI 配置文件时会生成模板并退出，编辑配置后重新运行即可。
-
-简单示例：
+Windows：
 
 ```bash
-# 默认 CLI：按命令行 > 配置文件 > 环境变量 > 默认值自动运行
-./cfdata-linux-amd64 -cli
-
-# 官方模式：扫描 IPv4，测试 443 端口，测速地址自动选择
-./cfdata-linux-amd64 -cli -mode official -offiptype 4 -offport 443 -offurl auto
-
-# 非标模式：读取本地文件，开启 TLS 和 5 个测速线程
-./cfdata-linux-amd64 -cli -mode nsb -nsbfile ip.txt -nsbtls=true -nsbspeedtest 5 -offurl auto
+cd combined_refactor
+set GOOS=windows
+set GOARCH=amd64
+go build -trimpath -ldflags "-s -w" -o proxyip-optimizer.exe .
 ```
 
-## Web 使用
+默认本地 Web 地址沿用后端监听端口 `13335`。
 
-界面顶部「扫描方式」选择器支持 TCPing（默认）和 HTTPing。不同扫描模式的延迟数据不可互相比较，仅同模式内的对比才有意义。
+## License / Attribution
 
-### 扫描方式说明
+本项目基于 CFData-WEB 继续开发，并保留原项目 GPL-3.0-or-later 授权要求与版权信息。修改版继续采用 GNU General Public License v3.0 or later；详见 `LICENSE`。
 
-- **TCPing**：测量 TCP 握手延迟，基准值。
-- **HTTPing**：测量 HTTP TTFB（Time To First Byte），延迟比 TCPing 高属正常现象。延迟阈值和渲染颜色已按倍率自动缩放，倍率仅为延迟等级参考值，非精确换算：
-  - 无 TLS（HTTP 端口）：×1.3
-  - 有 TLS（HTTPS 端口）：×4.0
-
-### 官方优选
-
-1. 选择 IPv4 或 IPv6。
-2. 设置测试端口、扫描并发、延迟阈值。
-3. 点击“开始扫描与测试”。
-4. 扫描完成后选择数据中心继续详细测试。
-5. 在详细测试结果中可单点测速或批量测速。
-
-### 非标优选
-
-1. 切换到“非标优选”。
-2. 上传 txt/csv，或填写网络 URL（二选一）。
-3. 设置备用端口、并发、TLS、结果上限、测速线程、测速阈值等参数。
-4. 点击“开始扫描与测试”。
-5. 在结果表格查看、筛选、导出或上传。
-
-非标输入推荐格式：
-
-```text
-1.2.3.4 443
-5.6.7.8 8443
-2606:4700::1111 443
-1.1.1.1
-```
-
-未提供端口时会使用备用端口；备用端口默认随 TLS 模式自动选择，关闭 TLS 为 80，开启 TLS 为 443。
-
-## 测速地址
-
-默认测速地址为 `auto`，表示由后端自动选择内置测速源。
-
-Web 下拉项：
-
-- 自动选择
-- Cloudflare
-- CM提供
-- 移动专属
-- 手动输入
-
-CLI 可通过 `-offurl`/`-nsburl` 指定：
-
-```bash
-./cfdata-linux-amd64 -cli -offurl auto
-./cfdata-linux-amd64 -cli -offurl speed.cloudflare.com/__down?bytes=99999999
-./cfdata-linux-amd64 -cli -offurl https://example.com/file.bin
-```
-
-说明：测速只读取响应字节流计算速度，不会把测速文件保存到本地。
-
-## 常用参数
-
-```text
--cli              启用 CLI 模式
--mode             official 或 nsb
--scanmode         扫描方式：tcping（默认，TCP 握手延迟）或 httping（HTTP TTFB，延迟比 tcping 高属正常，不同模式数据不可对比）
--offthreads       官方扫描并发数
--nsbthreads       非标扫描并发数
--offport          官方测试/测速端口
--offdelay         官方延迟阈值，单位毫秒
--nsbdelay         非标延迟阈值，单位毫秒
--offurl           官方测速下载地址，默认 auto
--nsburl           非标测速下载地址，默认 auto
--dns              自定义 DNS 服务器
--debug            调试日志等级：false、error、all
--offout           官方输出文件名
--nsbout           非标输出文件名
-```
-
-非标常用参数：
-
-```text
--nsbfile          本地输入文件
--nsbsourceurl     网络输入 URL
--nsbfallbackport  非标输入缺省端口；不传时随 TLS 自动使用 443/80
--nsbtls           非标是否启用 TLS
--nsbspeedtest     非标测速线程数，0 表示不测速。多 IP 并发影响实际速度，需要准确应设为 1
--nsbresultlimit   非标延迟测试结果上限
--nsbspeedmin      非标测速合格阈值，单位 MB/s
--nsbspeedlimit    非标测速合格结果上限
-```
-
-完整参数可运行：
-
-```bash
-./cfdata-linux-amd64 -h
-```
-
-## 本地缓存
-
-Web 右上角设置菜单提供“恢复全部默认配置”，会清理本地缓存文件，例如 `ips-v4.txt`、`ips-v6.txt`、`locations.json`、ASN 数据库等。任务运行中不会直接清理，避免影响测试。
-
-## 免责声明
-
-本程序仅限用于学习与研究目的。请在下载后24小时内自行删除。使用本程序时，应自行遵守所在地区的法律法规。作者不对使用本程序所产生的任何后果承担责任。下载或使用本程序即视为已阅读、理解并同意上述声明。
-
-## 致谢
-
-- TG 频道：[CF中转IP](https://t.me/CF_NAT)
-- GitHub：[Kwisma/iptest](https://github.com/Kwisma/iptest)
-
-## License
-
-Copyright (C) 2026 PoemMisty
-
-This project is licensed under the GNU General Public License v3.0 or later.
-See the LICENSE file for details.
+在当前私有开发阶段仅用于内部测试。若未来公开或分发二进制版本，将按 GPL-3.0-or-later 要求同步提供对应源码与许可信息。
