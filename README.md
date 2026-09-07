@@ -45,7 +45,7 @@ set GOARCH=amd64
 go build -trimpath -ldflags "-s -w" -o proxyip-optimizer.exe .
 ```
 
-默认本地 Web 地址沿用后端监听端口 `13335`。
+默认本地 Web 地址为 `http://127.0.0.1:13335`，程序默认只监听本机回环地址，不会直接暴露到局域网或公网。
 
 ## License / Attribution
 

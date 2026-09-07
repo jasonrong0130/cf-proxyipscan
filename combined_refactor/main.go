@@ -147,7 +147,7 @@ func main() {
 	cliCfg := registerCLIFlags()
 
 	flag.IntVar(&listenPort, "port", 13335, "服务监听端口")
-	flag.StringVar(&listenHost, "host", "", "服务监听地址；留空监听全部地址，Android APK 建议使用 127.0.0.1")
+	flag.StringVar(&listenHost, "host", "127.0.0.1", "服务监听地址；默认仅监听本机 127.0.0.1，需要局域网访问时再显式修改")
 	flag.StringVar(&speedTestURL, "url", autoSpeedURLValue, "测速下载地址；auto 表示由后端自动选择内置测速源")
 	flag.BoolVar(&skipGeoCheck, "skipgeo", false, "跳过地区/代理环境验证")
 	flag.StringVar(&customDNSServer, "dns", defaultDNSServers, "自定义 DNS 服务器，例如 223.5.5.5、8.8.8.8:53 或逗号分隔多个；默认系统 DNS 优先、失败回退到该内置 DNS，显式提供时强制使用指定 DNS")

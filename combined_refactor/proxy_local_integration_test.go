@@ -84,3 +84,20 @@ func parsePortForTest(value string) (int, bool) {
 	}
 	return n, n > 0 && n <= 65535
 }
+
+func TestProxyLocalUIHasSafeDefaults(t *testing.T) {
+	data, err := staticFiles.ReadFile("index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	html := string(data)
+	required := []string{"ProxyIP Optimizer", "start_proxy_task", "example.com", "Host 默认跟随 SNI"}
+	for _, item := range required {
+		if !strings.Contains(html, item) {
+			t.Fatalf("UI missing required marker %q", item)
+		}
+	}
+	if strings.Contains(html, "value=\"example.com\"") {
+		t.Fatal("SNI example must remain a placeholder, not a persisted default value")
+	}
+}
