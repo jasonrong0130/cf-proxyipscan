@@ -91,7 +91,7 @@ func TestProxyLocalUIHasSafeDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 	html := string(data)
-	required := []string{"CF优选IP筛选器", "start_proxy_task", "example.com", "Host 默认跟随 SNI", "一键测速", "停止测速", "请先填写实际使用的 SNI", "pageSize"}
+	required := []string{"CF优选IP筛选器", "start_proxy_task", "example.com", "Host 默认跟随 SNI", "一键测速", "停止测速", "请先填写实际使用的 SNI", "pageSize", "filterSpeed", "exportModal", "归属地", "当前筛选结果"}
 	for _, item := range required {
 		if !strings.Contains(html, item) {
 			t.Fatalf("UI missing required marker %q", item)
@@ -99,5 +99,11 @@ func TestProxyLocalUIHasSafeDefaults(t *testing.T) {
 	}
 	if strings.Contains(html, "value=\"example.com\"") {
 		t.Fatal("SNI example must remain a placeholder, not a persisted default value")
+	}
+	if !strings.Contains(html, "id=\"threads\" type=\"number\" value=\"8\" min=\"1\" max=\"16\"") || !strings.Contains(html, "id=\"speedThreads\" type=\"number\" value=\"1\" min=\"1\" max=\"2\"") {
+		t.Fatal("V4 lightweight concurrency defaults are missing")
+	}
+	if strings.Contains(html, "data-sort=\"httpStatus\">HTTP") || strings.Contains(html, "<th>说明</th>") {
+		t.Fatal("HTTP/说明 columns must remain removed from the V4 result table")
 	}
 }

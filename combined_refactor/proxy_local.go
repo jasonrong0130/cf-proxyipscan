@@ -62,30 +62,32 @@ type proxyProbeAttempt struct {
 }
 
 type proxyLocalResult struct {
-	InputIndex    int    `json:"inputIndex"`
-	IP            string `json:"ip"`
-	Port          int    `json:"port"`
-	Endpoint      string `json:"endpoint"`
-	Status        string `json:"status"`
-	Stage         string `json:"stage"`
-	SuccessRate   int    `json:"successRate"`
-	Attempts      int    `json:"attempts"`
-	TCPSuccesses  int    `json:"tcpSuccesses"`
-	TLSSuccesses  int    `json:"tlsSuccesses"`
-	HTTPSuccesses int    `json:"httpSuccesses"`
-	TCPMS         int64  `json:"tcpMs"`
-	TLSMS         int64  `json:"tlsMs"`
-	TTFBMS        int64  `json:"ttfbMs"`
-	HTTPStatus    int    `json:"httpStatus"`
-	CFConfirmed   bool   `json:"cfConfirmed"`
-	Colo          string `json:"colo,omitempty"`
-	Loc           string `json:"loc,omitempty"`
-	ExitIP        string `json:"exitIp,omitempty"`
-	EntryASN      string `json:"entryAsn,omitempty"`
-	EntryOrg      string `json:"entryOrg,omitempty"`
-	ExitASN       string `json:"exitAsn,omitempty"`
-	ExitOrg       string `json:"exitOrg,omitempty"`
-	Error         string `json:"error,omitempty"`
+	InputIndex     int    `json:"inputIndex"`
+	IP             string `json:"ip"`
+	Port           int    `json:"port"`
+	Endpoint       string `json:"endpoint"`
+	Status         string `json:"status"`
+	Stage          string `json:"stage"`
+	SuccessRate    int    `json:"successRate"`
+	Attempts       int    `json:"attempts"`
+	TCPSuccesses   int    `json:"tcpSuccesses"`
+	TLSSuccesses   int    `json:"tlsSuccesses"`
+	HTTPSuccesses  int    `json:"httpSuccesses"`
+	TCPMS          int64  `json:"tcpMs"`
+	TLSMS          int64  `json:"tlsMs"`
+	TTFBMS         int64  `json:"ttfbMs"`
+	HTTPStatus     int    `json:"httpStatus"`
+	CFConfirmed    bool   `json:"cfConfirmed"`
+	Colo           string `json:"colo,omitempty"`
+	Loc            string `json:"loc,omitempty"`
+	ExitIP         string `json:"exitIp,omitempty"`
+	EntryASN       string `json:"entryAsn,omitempty"`
+	EntryOrg       string `json:"entryOrg,omitempty"`
+	ExitASN        string `json:"exitAsn,omitempty"`
+	ExitOrg        string `json:"exitOrg,omitempty"`
+	Location       string `json:"location,omitempty"`
+	LocationSource string `json:"locationSource,omitempty"`
+	Error          string `json:"error,omitempty"`
 }
 
 type proxyLocalSummary struct {
@@ -134,7 +136,7 @@ func normalizeProxyPath(value string) string {
 }
 
 func normalizeProxyConfig(req proxyLocalTaskRequest) proxyProbeConfig {
-	threads := clampProxyInt(req.Threads, 30, 1, 100)
+	threads := clampProxyInt(req.Threads, 8, 1, 16)
 	timeoutMS := clampProxyInt(req.TimeoutMS, 5000, 1500, 15000)
 	attempts := clampProxyInt(req.Attempts, 1, 1, 5)
 	sni := normalizeProxyHost(req.SNI)
@@ -494,6 +496,7 @@ func probeProxyCandidate(ctx context.Context, candidate proxyCandidate, cfg prox
 		result.ExitASN, result.ExitOrg = lookupASN(result.ExitIP)
 	}
 	classifyProxyResult(&result, cfg, strongSuccesses)
+	enrichProxyLocation(ctx, &result)
 	return result
 }
 
@@ -524,7 +527,6 @@ func runProxyLocalTask(ctx context.Context, session *appSession, req proxyLocalT
 		session.sendWSMessage("error", "没有解析到有效的 IP:端口")
 		return
 	}
-
 
 	session.sendWSMessage("proxy_started", map[string]interface{}{
 		"total":         len(candidates),

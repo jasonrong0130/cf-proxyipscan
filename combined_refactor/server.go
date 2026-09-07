@@ -285,8 +285,11 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 				session.sendWSMessage("error", "start_nsb_speed_batch 参数解析失败")
 				return
 			}
-			if params.SpeedTest < 0 {
-				params.SpeedTest = 0
+			if params.SpeedTest <= 0 {
+				params.SpeedTest = 1
+			}
+			if params.SpeedTest > 2 {
+				params.SpeedTest = 2
 			}
 			if params.SpeedLimit < 0 {
 				params.SpeedLimit = 0
