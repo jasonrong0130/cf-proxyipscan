@@ -415,22 +415,23 @@ func classifyProxyResult(result *proxyLocalResult, cfg proxyProbeConfig, _ int) 
 		result.Stage = "failed"
 	}
 
-	successes := result.HTTPSuccesses
-	if (cfg.EnableTLS && cfg.SNI == "") || (!cfg.EnableTLS && cfg.Host == "") {
-		successes = result.TCPSuccesses
-	}
-	result.SuccessRate = int(float64(successes) / float64(result.Attempts) * 100)
-
-	if result.Stage == "failed" {
-		result.Status = "failed"
-		if result.Error == "" {
-			result.Error = "TCP 不可达"
-		}
+	result.SuccessRate = int(float64(result.HTTPSuccesses) / float64(result.Attempts) * 100)
+	if result.HTTPSuccesses > 0 {
+		result.Status = "success"
 		return
 	}
-	result.Status = "success"
-	if cfg.EnableTLS && cfg.SNI == "" && result.Error == "" {
-		result.Error = "未填写 SNI，仅完成 TCP 测试"
+
+	result.Status = "failed"
+	if result.Error != "" {
+		return
+	}
+	switch result.Stage {
+	case "tls":
+		result.Error = "TLS 已连接，但未收到 HTTP 响应"
+	case "tcp":
+		result.Error = "TCP 可达，但 TLS / HTTP 链路未完成"
+	default:
+		result.Error = "TCP 不可达"
 	}
 }
 
@@ -514,15 +515,16 @@ func proxySummary(results []proxyLocalResult) proxyLocalSummary {
 
 func runProxyLocalTask(ctx context.Context, session *appSession, req proxyLocalTaskRequest) {
 	cfg := normalizeProxyConfig(req)
+	if cfg.SNI == "" {
+		session.sendWSMessage("error", "请先填写实际使用的 SNI")
+		return
+	}
 	candidates := parseProxyCandidates(req.FileContent, req.FallbackPort)
 	if len(candidates) == 0 {
 		session.sendWSMessage("error", "没有解析到有效的 IP:端口")
 		return
 	}
 
-	if cfg.EnableTLS && cfg.SNI == "" {
-		session.sendWSMessage("log", "SNI 为空：本轮只做 TCP 本地测试，不使用固定公共域名代替真实 SNI。")
-	}
 
 	session.sendWSMessage("proxy_started", map[string]interface{}{
 		"total":         len(candidates),
@@ -532,9 +534,6 @@ func runProxyLocalTask(ctx context.Context, session *appSession, req proxyLocalT
 	})
 
 	phaseText := "真实 SNI / 本地链路测试中"
-	if cfg.EnableTLS && cfg.SNI == "" {
-		phaseText = "TCP 本地测试中"
-	}
 	session.sendWSMessage("proxy_progress", map[string]interface{}{
 		"phase": "probe", "current": 0, "total": len(candidates), "text": phaseText,
 	})

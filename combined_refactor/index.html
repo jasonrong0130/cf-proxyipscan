@@ -5,192 +5,437 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>CF优选IP筛选器</title>
 <style>
-:root{--bg:#eef3fb;--glass:rgba(255,255,255,.60);--glass2:rgba(255,255,255,.78);--line:rgba(255,255,255,.82);--text:#162033;--muted:#6e7b91;--dark:#14243d;--blue:#2487ff;--green:#12a877;--red:#ef4055;--orange:#f59e0b;--shadow:0 18px 60px rgba(64,87,123,.12),inset 0 1px 0 rgba(255,255,255,.84);--radius:20px}
-*{box-sizing:border-box}html,body{margin:0;min-height:100%;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:var(--text)}body{background:radial-gradient(circle at 8% 12%,rgba(255,255,255,.97),transparent 30%),radial-gradient(circle at 86% 18%,rgba(183,214,255,.64),transparent 30%),radial-gradient(circle at 48% 100%,rgba(214,226,255,.8),transparent 40%),linear-gradient(135deg,#f7f9fd,#e7eef9 55%,#f8fbff);padding:22px}.shell{width:min(1550px,calc(100vw - 28px));margin:auto;border:1px solid rgba(255,255,255,.9);border-radius:24px;background:rgba(244,248,255,.57);box-shadow:0 28px 100px rgba(58,77,112,.18),inset 0 1px 0 #fff;backdrop-filter:blur(28px) saturate(155%);overflow:hidden}.titlebar{height:64px;display:flex;align-items:center;gap:14px;padding:0 22px;border-bottom:1px solid rgba(173,190,216,.28);background:rgba(255,255,255,.48);backdrop-filter:blur(28px)}.lights{display:flex;gap:7px}.lights i{width:12px;height:12px;border-radius:50%;display:block}.lights i:nth-child(1){background:#ff5f57}.lights i:nth-child(2){background:#febc2e}.lights i:nth-child(3){background:#28c840}.brandmark{width:38px;height:38px;border-radius:12px;background:linear-gradient(145deg,#20344f,#0c1628);display:grid;place-items:center;color:#fff;font-size:21px;box-shadow:inset 0 1px 1px rgba(255,255,255,.24),0 8px 24px rgba(21,37,62,.22)}.brand{line-height:1.1}.brand b{font-size:18px}.brand span{display:block;font-size:11px;color:var(--muted);margin-top:4px}.topnav{margin-left:auto;display:flex;gap:10px}.main{padding:22px 28px 30px}.hero h1{font-size:28px;margin:0 0 3px}.hero p{margin:0 0 18px;color:var(--muted);font-size:13px}.glass{background:var(--glass);border:1px solid var(--line);box-shadow:var(--shadow);backdrop-filter:blur(22px) saturate(150%);border-radius:var(--radius)}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:14px}.stat{padding:16px 20px;display:flex;align-items:center;gap:14px}.stat .ico{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:21px;background:rgba(232,239,250,.78);box-shadow:inset 0 1px 0 #fff}.stat.green .ico{color:var(--green);background:rgba(218,249,238,.8)}.stat.blue .ico{color:var(--blue);background:rgba(219,237,255,.82)}.stat.orange .ico{color:var(--orange);background:rgba(255,243,213,.82)}.stat label{display:block;color:var(--muted);font-size:12px}.stat strong{font-size:25px;display:block;margin-top:2px}.twocol{display:grid;grid-template-columns:1.05fr 1fr;gap:14px}.card{padding:18px}.cardhead{display:flex;align-items:center;gap:9px;font-weight:800;font-size:16px;margin-bottom:14px}.cardhead .right{margin-left:auto;color:var(--muted);font-size:12px;font-weight:500}.dropgrid{display:grid;grid-template-columns:1.25fr .8fr;gap:12px}.dropzone{border:1px dashed rgba(116,143,183,.55);border-radius:15px;min-height:150px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);background:rgba(255,255,255,.26);position:relative;transition:.2s}.dropzone.drag{border-color:var(--blue);background:rgba(225,240,255,.52)}.dropzone textarea{position:absolute;inset:0;width:100%;height:100%;resize:none;border:0;background:transparent;color:transparent;caret-color:var(--text);outline:0;padding:16px;opacity:.02}.dropzone .hint{pointer-events:none}.dropzone .hint b{color:#33445f;display:block;margin-bottom:5px}.preview{border:1px solid rgba(181,196,219,.5);background:rgba(255,255,255,.34);border-radius:14px;padding:12px;font:12px/1.55 ui-monospace,SFMono-Regular,Menlo,monospace;color:#526178;white-space:pre-wrap;overflow:auto;max-height:150px}.actions{display:flex;gap:10px;margin-top:11px;flex-wrap:wrap}.btn,.ghost{border:0;border-radius:12px;padding:10px 14px;font-weight:750;cursor:pointer}.btn.primary{background:linear-gradient(145deg,#1d324f,#0e1a2c);color:#fff;box-shadow:0 8px 20px rgba(20,36,61,.22),inset 0 1px 0 rgba(255,255,255,.18)}.btn.soft,.ghost{border:1px solid rgba(174,190,215,.52);background:rgba(255,255,255,.48);color:#25344b}.btn:disabled,.ghost:disabled{opacity:.45;cursor:not-allowed}.formrow{display:grid;grid-template-columns:90px 1fr;align-items:center;gap:10px;margin-bottom:9px}.formrow label{font-size:12px;color:#526178;font-weight:700}.input,select{width:100%;height:38px;border:1px solid rgba(168,187,214,.5);border-radius:10px;background:rgba(255,255,255,.52);padding:0 11px;color:var(--text);outline:none}.switchrow{display:flex;align-items:center;gap:10px}.switch{width:46px;height:26px;border-radius:15px;background:#c8d2df;padding:3px;cursor:pointer;transition:.2s}.switch i{display:block;width:20px;height:20px;background:#fff;border-radius:50%;box-shadow:0 2px 7px rgba(0,0,0,.18);transition:.2s}.switch.on{background:#203b60}.switch.on i{transform:translateX(20px)}details.advanced{margin-top:12px;border-top:1px solid rgba(174,190,215,.35);padding-top:10px}details summary{cursor:pointer;color:#64748b;font-size:12px;font-weight:700}.note{font-size:11px;color:var(--muted);margin-top:7px}.runbar{display:flex;align-items:center;gap:14px;padding:14px 18px;margin-top:14px}.runbar .title{font-weight:800}.runbar .hint{color:var(--muted);font-size:12px}.start{margin-left:auto;min-width:190px}.progresscard{display:flex;align-items:center;gap:16px;margin-top:10px;padding:12px 18px}.ring{width:34px;height:34px;border-radius:50%;border:5px solid #d7e5f7;border-top-color:var(--blue)}.ring.running{animation:spin 1s linear infinite}@keyframes spin{to{transform:rotate(360deg)}}.progressmeta{width:290px}.progressmeta b{display:block}.progressmeta span{font-size:11px;color:var(--muted)}.track{height:10px;flex:1;background:rgba(194,210,232,.55);border-radius:999px;overflow:hidden}.track i{display:block;height:100%;width:0;background:linear-gradient(90deg,#1c9dff,#4d7dff);border-radius:999px;transition:.2s}.pct{width:48px;text-align:right;color:#536176}.results{margin-top:14px;padding:16px 18px 12px}.resulttop{display:flex;align-items:center;gap:10px;flex-wrap:wrap}.resulttop b{font-size:16px}.resultcount{font-size:12px;color:var(--muted)}.toolbar{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}.toolbar select{width:auto;min-width:108px}.toolbar .input{width:190px}.filterbar{display:grid;grid-template-columns:1.5fr repeat(6,minmax(100px,1fr));gap:8px;margin-top:12px}.filterbar .input,.filterbar select{height:36px}.tablewrap{overflow:auto;margin-top:11px;border-radius:14px;border:1px solid rgba(177,193,216,.38);background:rgba(255,255,255,.35);max-height:580px}table{border-collapse:separate;border-spacing:0;width:100%;min-width:1450px}th,td{padding:10px 11px;border-bottom:1px solid rgba(185,199,219,.3);text-align:left;white-space:nowrap;font-size:12px}th{position:sticky;top:0;z-index:3;color:#66758b;background:rgba(238,244,251,.96);font-size:11px;backdrop-filter:blur(12px)}th.sortable{cursor:pointer;user-select:none}th.sortable:hover{color:#1e3352}tbody tr:hover{background:rgba(255,255,255,.52)}.status{display:inline-flex;align-items:center;gap:6px}.dot{width:8px;height:8px;border-radius:50%;display:inline-block}.stage-http .dot{background:var(--green)}.stage-tls .dot{background:var(--blue)}.stage-tcp .dot{background:var(--orange)}.stage-failed .dot{background:var(--red)}.muted{color:#8b97aa}.asn{max-width:260px;overflow:hidden;text-overflow:ellipsis}.err{max-width:300px;overflow:hidden;text-overflow:ellipsis}.pager{display:flex;align-items:center;gap:8px;margin-top:10px}.pager .spacer{flex:1}.pager .info{font-size:12px;color:var(--muted)}.pager select{width:auto;height:34px}.toast{position:fixed;right:28px;bottom:28px;max-width:430px;background:rgba(18,31,50,.92);color:#fff;padding:12px 16px;border-radius:12px;box-shadow:0 15px 45px rgba(0,0,0,.2);opacity:0;pointer-events:none;transform:translateY(10px);transition:.2s;z-index:30}.toast.show{opacity:1;transform:none}.hidden{display:none!important}@media(max-width:1100px){body{padding:8px}.shell{width:100%}.main{padding:16px}.stats{grid-template-columns:repeat(2,1fr)}.twocol{grid-template-columns:1fr}.dropgrid{grid-template-columns:1fr}.filterbar{grid-template-columns:repeat(2,1fr)}.topnav{display:none}.progressmeta{width:210px}}@media(max-width:680px){.stats{grid-template-columns:1fr 1fr}.filterbar{grid-template-columns:1fr}.runbar,.progresscard{flex-wrap:wrap}.start{margin-left:0}.progressmeta{width:100%}}
+:root{
+  --bg:#edf3fb;--glass:rgba(255,255,255,.62);--glass2:rgba(255,255,255,.78);--line:rgba(164,184,211,.36);
+  --text:#162033;--muted:#708097;--dark:#14243d;--blue:#2487ff;--green:#12a877;--orange:#e89510;--red:#e9445c;
+  --shadow:0 18px 60px rgba(58,82,118,.12),inset 0 1px 0 rgba(255,255,255,.86);--radius:20px
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;color:var(--text)}
+body{background:
+  radial-gradient(circle at 8% 12%,rgba(255,255,255,.98),transparent 28%),
+  radial-gradient(circle at 88% 15%,rgba(184,217,255,.72),transparent 31%),
+  radial-gradient(circle at 48% 100%,rgba(217,228,255,.86),transparent 42%),
+  linear-gradient(135deg,#f8fafe,#e8eff9 56%,#f8fbff);padding:14px}
+button,input,select{font:inherit}
+.shell{width:min(1680px,100%);margin:auto;border:1px solid rgba(255,255,255,.9);border-radius:24px;background:rgba(244,248,255,.58);box-shadow:0 28px 100px rgba(58,77,112,.18),inset 0 1px 0 #fff;backdrop-filter:blur(28px) saturate(155%)}
+.titlebar{height:62px;display:flex;align-items:center;gap:13px;padding:0 20px;border-bottom:1px solid rgba(173,190,216,.28);background:rgba(255,255,255,.47);backdrop-filter:blur(28px);border-radius:24px 24px 0 0}
+.lights{display:flex;gap:7px}.lights i{width:12px;height:12px;border-radius:50%;display:block}.lights i:nth-child(1){background:#ff5f57}.lights i:nth-child(2){background:#febc2e}.lights i:nth-child(3){background:#28c840}
+.brandmark{width:38px;height:38px;border-radius:12px;background:linear-gradient(145deg,#20344f,#0c1628);display:grid;place-items:center;color:#fff;font-size:20px;box-shadow:inset 0 1px 1px rgba(255,255,255,.24),0 8px 24px rgba(21,37,62,.22)}
+.brand{line-height:1.08}.brand b{font-size:18px}.brand span{display:block;font-size:11px;color:var(--muted);margin-top:4px}
+.topnav{margin-left:auto;display:flex;gap:9px}
+.main{padding:20px 24px 26px}
+.hero{display:flex;align-items:end;justify-content:space-between;gap:20px;margin-bottom:14px}
+.hero h1{font-size:27px;margin:0 0 3px}.hero p{margin:0;color:var(--muted);font-size:13px}
+.glass{background:var(--glass);border:1px solid rgba(255,255,255,.82);box-shadow:var(--shadow);backdrop-filter:blur(22px) saturate(150%);border-radius:var(--radius)}
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:12px}
+.stat{padding:14px 18px;display:flex;align-items:center;gap:13px}.stat .ico{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-size:20px;background:rgba(230,238,250,.82);box-shadow:inset 0 1px 0 #fff}.stat.green .ico{color:var(--green);background:rgba(218,249,238,.82)}.stat.blue .ico{color:var(--blue);background:rgba(219,237,255,.84)}.stat.gold .ico{color:var(--orange);background:rgba(255,243,213,.84)}
+.stat label{display:block;color:var(--muted);font-size:12px}.stat strong{font-size:24px;display:block;margin-top:2px}
+.twocol{display:grid;grid-template-columns:1.05fr 1fr;gap:12px}.card{padding:17px}.cardhead{display:flex;align-items:center;gap:9px;font-weight:800;font-size:16px;margin-bottom:13px}.cardhead .right{margin-left:auto;color:var(--muted);font-size:12px;font-weight:500}
+.dropgrid{display:grid;grid-template-columns:1.25fr .8fr;gap:11px}.dropzone{border:1px dashed rgba(116,143,183,.55);border-radius:15px;min-height:142px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);background:rgba(255,255,255,.28);position:relative;transition:.18s}.dropzone.drag{border-color:var(--blue);background:rgba(225,240,255,.56)}.dropzone textarea{position:absolute;inset:0;width:100%;height:100%;resize:none;border:0;background:transparent;color:transparent;caret-color:var(--text);outline:0;padding:16px;opacity:.02}.dropzone .hint{pointer-events:none}.dropzone .hint b{color:#33445f;display:block;margin-bottom:5px}
+.preview{border:1px solid rgba(181,196,219,.5);background:rgba(255,255,255,.36);border-radius:14px;padding:12px;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;color:#526178;white-space:pre-wrap;overflow:auto;max-height:142px}
+.actions,.toolbar-actions,.pager-actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.actions{margin-top:10px}
+.btn,.ghost{border:0;border-radius:11px;padding:9px 13px;font-weight:750;cursor:pointer;white-space:nowrap}.btn.primary{background:linear-gradient(145deg,#1d324f,#0e1a2c);color:#fff;box-shadow:0 8px 20px rgba(20,36,61,.22),inset 0 1px 0 rgba(255,255,255,.18)}.btn.soft,.ghost{border:1px solid rgba(174,190,215,.52);background:rgba(255,255,255,.50);color:#25344b;backdrop-filter:blur(14px)}.btn:disabled,.ghost:disabled{opacity:.45;cursor:not-allowed}
+.formrow{display:grid;grid-template-columns:92px 1fr;align-items:center;gap:10px;margin-bottom:9px}.formrow label{font-size:12px;color:#526178;font-weight:700}.input,select{width:100%;height:38px;border:1px solid rgba(168,187,214,.5);border-radius:10px;background:rgba(255,255,255,.52);padding:0 10px;color:var(--text);outline:none}.input:focus,select:focus{border-color:rgba(36,135,255,.55);box-shadow:0 0 0 3px rgba(36,135,255,.08)}
+.input-error{border-color:rgba(239,64,85,.9)!important;box-shadow:0 0 0 3px rgba(239,64,85,.12)!important}
+.switchrow{display:flex;align-items:center;gap:10px}.switch{width:46px;height:26px;border-radius:15px;background:#c8d2df;padding:3px;cursor:pointer;transition:.2s}.switch i{display:block;width:20px;height:20px;background:#fff;border-radius:50%;box-shadow:0 2px 7px rgba(0,0,0,.18);transition:.2s}.switch.on{background:#203b60}.switch.on i{transform:translateX(20px)}
+details.advanced{margin-top:12px;border-top:1px solid rgba(174,190,215,.35);padding-top:10px}details summary{cursor:pointer;color:#64748b;font-size:12px;font-weight:700}.note{font-size:11px;color:var(--muted);margin-top:7px}
+.runbar{display:flex;align-items:center;gap:12px;padding:12px 16px;margin-top:12px}.runbar .run-title{font-weight:800}.runbar .run-note{font-size:12px;color:var(--muted)}.runbar .run-buttons{margin-left:auto;display:flex;gap:8px}
+.progresscard{display:flex;align-items:center;gap:15px;margin-top:9px;padding:11px 16px}.ring{width:31px;height:31px;border-radius:50%;border:5px solid #d7e5f7;border-top-color:var(--blue);animation:spin 1s linear infinite}.ring.idle{animation:none;border-top-color:#d7e5f7}@keyframes spin{to{transform:rotate(360deg)}}.progressmeta{width:300px}.progressmeta b{display:block;font-size:13px}.progressmeta span{font-size:11px;color:var(--muted)}.track{height:9px;flex:1;background:rgba(194,210,232,.55);border-radius:999px;overflow:hidden}.track i{display:block;height:100%;width:0;background:linear-gradient(90deg,#1c9dff,#4d7dff);border-radius:999px;transition:.15s}.pct{width:50px;text-align:right;color:#536176;font-size:12px}
+.results{margin-top:12px;padding:14px 15px 12px}.result-title{display:flex;align-items:center;gap:8px;margin-bottom:10px}.result-title b{font-size:16px}.result-title span{font-size:12px;color:var(--muted)}
+.filters{display:grid;grid-template-columns:minmax(240px,1.5fr) 145px 190px minmax(220px,1fr);gap:8px;align-items:center;margin-bottom:9px}.filters .input,.filters select{height:35px;font-size:12px}.filterhint{font-size:11px;color:var(--muted);padding-left:4px}
+.result-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:9px 0;border-top:1px solid rgba(174,190,215,.28);border-bottom:1px solid rgba(174,190,215,.28)}.result-actions .spacer{flex:1}.scope{width:auto;min-width:120px;height:35px}.mini{font-size:12px;padding:8px 11px}
+.tablewrap{margin-top:9px;border-radius:14px;border:1px solid rgba(177,193,216,.38);background:rgba(255,255,255,.35);overflow:auto;max-height:520px}
+table{border-collapse:separate;border-spacing:0;width:max-content;min-width:100%;table-layout:auto}
+th,td{padding:9px 10px;border-bottom:1px solid rgba(185,199,219,.3);text-align:left;white-space:nowrap;font-size:12px;max-width:270px;overflow:hidden;text-overflow:ellipsis}
+th{position:sticky;top:0;z-index:4;color:#66758b;background:rgba(238,244,251,.94);font-size:11px;cursor:default;backdrop-filter:blur(16px)}
+th.sortable{cursor:pointer;user-select:none}th.sortable:hover{color:#1c70cf}.sortmark{font-size:10px;margin-left:4px}
+tbody tr:hover{background:rgba(255,255,255,.56)}td.sticky,th.sticky{position:sticky;left:0;z-index:3;background:rgba(246,249,253,.96)}th.sticky{z-index:6}.checkcol{width:38px;text-align:center}.stage{display:inline-flex;align-items:center;gap:6px}.dot{width:8px;height:8px;border-radius:50%;display:inline-block}.stage.success .dot{background:var(--green)}.stage.failed .dot{background:var(--red)}
+.pager{display:flex;align-items:center;gap:10px;margin-top:10px}.pager .info{font-size:12px;color:var(--muted)}.pager .spacer{flex:1}.pager select{width:92px;height:34px;font-size:12px}
+.toast{position:fixed;right:24px;bottom:24px;max-width:440px;background:rgba(18,31,50,.93);color:#fff;padding:11px 15px;border-radius:12px;box-shadow:0 15px 45px rgba(0,0,0,.2);opacity:0;pointer-events:none;transform:translateY(10px);transition:.2s;z-index:30}.toast.show{opacity:1;transform:none}.hidden{display:none!important}
+@media(max-width:1100px){body{padding:7px}.main{padding:15px}.stats{grid-template-columns:repeat(2,1fr)}.twocol{grid-template-columns:1fr}.filters{grid-template-columns:1fr 150px 190px}.filterhint{display:none}.topnav{display:none}.progressmeta{width:220px}}
+@media(max-width:720px){.filters{grid-template-columns:1fr 1fr}.hero{display:block}.stats{grid-template-columns:1fr 1fr}.dropgrid{grid-template-columns:1fr}.progresscard{flex-wrap:wrap}.track{min-width:180px}.result-actions .spacer{display:none}}
 </style>
 </head>
 <body>
 <div class="shell">
   <div class="titlebar">
-    <div class="lights"><i></i><i></i><i></i></div><div class="brandmark">⚡</div>
+    <div class="lights"><i></i><i></i><i></i></div>
+    <div class="brandmark">⚡</div>
     <div class="brand"><b>CF优选IP筛选器</b><span>Local Network Benchmark</span></div>
     <div class="topnav"><button class="ghost" id="settingsBtn">⚙ 设置</button><button class="ghost" id="aboutBtn">ⓘ 关于</button></div>
   </div>
+
   <main class="main">
-    <section class="hero"><h1>本地测试与筛选</h1><p>导入候选 ProxyIP，在当前电脑真实网络下测试 TCP / TLS / HTTP / TTFB，并把事实数据列出来；不按地区延迟替你判断线路好坏。</p></section>
+    <section class="hero">
+      <div><h1>本地测试与排序</h1><p>只测试并列出事实数据。香港、美国、日本等地区不做统一好坏评分，可直接按 TCP、TLS、首包响应或速度排序。</p></div>
+    </section>
 
     <section class="stats">
       <div class="glass stat"><div class="ico">◉</div><div><label>总候选</label><strong id="statTotal">0</strong></div></div>
-      <div class="glass stat green"><div class="ico">✓</div><div><label>已测试</label><strong id="statTested">0</strong></div></div>
-      <div class="glass stat blue"><div class="ico">⌁</div><div><label>TCP 可达</label><strong id="statTCP">0</strong></div></div>
-      <div class="glass stat orange"><div class="ico">↗</div><div><label>HTTP 响应</label><strong id="statHTTP">0</strong></div></div>
+      <div class="glass stat blue"><div class="ico">◎</div><div><label>已测试</label><strong id="statTested">0</strong></div></div>
+      <div class="glass stat green"><div class="ico">✓</div><div><label>可优选</label><strong id="statEligible">0</strong></div></div>
+      <div class="glass stat gold"><div class="ico">×</div><div><label>失败</label><strong id="statFailed">0</strong></div></div>
     </section>
 
     <section class="twocol">
       <div class="glass card">
         <div class="cardhead">▤ 候选 IP <span class="right" id="importCount">已导入 0 条</span></div>
         <div class="dropgrid">
-          <div class="dropzone" id="dropzone"><textarea id="candidates" spellcheck="false"></textarea><div class="hint"><b>⇧ 拖拽 TXT / CSV 文件到此处</b><span>支持 IP:端口 / IP 端口 / CSV / 多端口</span></div></div>
+          <div class="dropzone" id="dropzone">
+            <textarea id="candidates" spellcheck="false"></textarea>
+            <div class="hint"><b>⇧ 拖拽 TXT / CSV 文件到此处</b><span>支持 IP:端口 / IP 端口 / CSV / 多端口</span></div>
+          </div>
           <div class="preview" id="preview">等待导入候选…</div>
         </div>
-        <div class="actions"><button class="btn primary" id="importBtn">▣ 导入文件</button><button class="btn soft" id="pasteBtn">▢ 粘贴导入</button><input type="file" id="fileInput" accept=".txt,.csv,text/plain,text/csv" hidden></div>
+        <div class="actions">
+          <button class="btn primary" id="importBtn">▣ 导入文件</button>
+          <button class="btn soft" id="pasteBtn">▢ 粘贴导入</button>
+          <input type="file" id="fileInput" accept=".txt,.csv,text/plain,text/csv" hidden>
+        </div>
       </div>
 
       <div class="glass card">
         <div class="cardhead">⚙ 实际使用配置 <button class="ghost right" id="saveDefaults">保存为默认配置</button></div>
-        <div class="formrow"><label>SNI</label><input class="input" id="sni" autocomplete="off" placeholder="例如 example.com（填写你实际使用的 SNI）"></div>
+        <div class="formrow"><label>SNI</label><input class="input" id="sni" autocomplete="off" placeholder="例如 example.com（建议填写实际使用域名）"></div>
         <div class="formrow"><label>Path</label><input class="input" id="path" value="/cdn-cgi/trace"></div>
         <div class="formrow"><label>TLS</label><div class="switchrow"><div class="switch on" id="tlsSwitch"><i></i></div><span id="tlsText">开启</span></div></div>
-        <div class="note">SNI 默认留空且不会写入仓库。留空时只测试 TCP；Host 默认跟随 SNI。</div>
+        <div class="note">SNI 为必填项，用于真实链路验证；Host 默认跟随 SNI。源码不会预置任何个人域名。</div>
         <details class="advanced" id="advanced"><summary>高级设置</summary><div style="height:10px"></div>
-          <div class="formrow"><label>Host</label><input class="input" id="host" placeholder="默认跟随 SNI"></div>
+          <div class="formrow"><label>Host</label><input class="input" id="host" placeholder="Host 默认跟随 SNI"></div>
           <div class="formrow"><label>缺省端口</label><input class="input" id="fallbackPort" type="number" value="443" min="1" max="65535"></div>
-          <div class="formrow"><label>并发</label><input class="input" id="threads" type="number" value="30" min="1" max="100"></div>
-          <div class="formrow"><label>测试次数</label><input class="input" id="attempts" type="number" value="1" min="1" max="5"></div>
+          <div class="formrow"><label>每 IP 次数</label><input class="input" id="attempts" type="number" value="1" min="1" max="5"></div>
+          <div class="formrow"><label>测试并发</label><input class="input" id="threads" type="number" value="30" min="1" max="100"></div>
           <div class="formrow"><label>单次超时</label><input class="input" id="timeoutMs" type="number" value="5000" min="1500" max="15000"></div>
-          <div class="formrow"><label>忽略证书错误</label><div class="switchrow"><div class="switch" id="insecureSwitch"><i></i></div><span id="insecureText">关闭</span></div></div>
+          <div class="formrow"><label>忽略证书</label><div class="switchrow"><div class="switch" id="insecureSwitch"><i></i></div><span id="insecureText">关闭</span></div></div>
           <div class="formrow"><label>测速并发</label><input class="input" id="speedThreads" type="number" value="1" min="1" max="10"></div>
         </details>
       </div>
     </section>
 
-    <section class="glass runbar"><div class="title">◎ 本地测试</div><div class="hint">默认每个 IP 只测 1 次；需要复测时可在高级设置修改测试次数。</div><button class="btn primary start" id="startBtn">▶ 开始测试</button><button class="btn soft hidden" id="stopBtn">■ 停止</button></section>
+    <section class="glass runbar">
+      <div><div class="run-title">◎ 测试控制</div><div class="run-note">默认每个 IP 仅测试 1 次；需要稳定性复测时可在高级设置自行调整。</div></div>
+      <div class="run-buttons"><button class="btn primary" id="startBtn">▶ 开始测试</button><button class="btn soft hidden" id="stopBtn">■ 停止</button></div>
+    </section>
 
-    <section class="glass progresscard"><div class="ring" id="ring"></div><div class="progressmeta"><b id="progressTitle">等待开始</b><span id="progressSub">本地链路测试</span></div><div class="track"><i id="progressBar"></i></div><div class="pct" id="progressPct">0%</div></section>
+    <section class="glass progresscard">
+      <div class="ring idle" id="ring"></div>
+      <div class="progressmeta"><b id="progressTitle">等待开始</b><span id="progressSub">本地链路测试</span></div>
+      <div class="track"><i id="progressBar"></i></div><div class="pct" id="progressPct">0%</div>
+    </section>
 
     <section class="glass results">
-      <div class="resulttop">
-        <b>☷ 测试结果</b><span class="resultcount" id="resultCount">0 条</span>
-        <div class="toolbar">
-          <select id="actionScope" title="操作范围"><option value="filtered">当前筛选</option><option value="page">当前页</option><option value="selected">已勾选</option><option value="all">全部结果</option></select>
-          <select id="speedPreset" title="测速源"><option value="auto">测速源：自动</option><option value="speed.cloudflare.com/__down?bytes=99999999">测速源：Cloudflare</option><option value="custom">测速源：自定义</option></select>
-          <input class="input hidden" id="speedCustom" placeholder="example.com/file.bin">
-          <button class="btn soft" id="speedBtn">🚀 一键测速</button>
-          <button class="btn soft" id="continueSpeedBtn">⏭ 继续测速</button>
-          <button class="btn soft" id="copyBtn">📋 一键复制</button>
-          <button class="btn soft" id="exportTxt">TXT</button>
-          <button class="btn soft" id="exportCsv">CSV</button>
-        </div>
-      </div>
+      <div class="result-title"><b>☷ 测试结果</b><span id="resultSummary">0 条</span></div>
 
-      <div class="filterbar">
+      <div class="filters">
         <input class="input" id="filterSearch" placeholder="搜索 IP / ASN / 运营商 / 出口 IP">
-        <select id="filterStage"><option value="all">全部状态</option><option value="http">HTTP 响应</option><option value="tls">TLS 成功</option><option value="tcp">TCP 可达</option><option value="failed">失败</option></select>
-        <input class="input" id="filterPort" type="number" placeholder="端口">
-        <input class="input" id="filterColo" placeholder="机房 HKG/LAX">
-        <input class="input" id="filterAsn" placeholder="ASN / 组织">
-        <input class="input" id="filterTcpMax" type="number" placeholder="TCP ≤ ms">
-        <input class="input" id="filterSpeedMin" type="number" step="0.01" placeholder="速度 ≥ MB/s">
+        <select id="filterStatus"><option value="">全部</option><option value="success">可优选</option><option value="failed">失败</option></select>
+        <select id="sortSelect"><option value="original">排序：原始顺序</option><option value="tcp">TCP 延迟：低 → 高</option><option value="tls">TLS 延迟：低 → 高</option><option value="ttfb">首包响应：低 → 高</option><option value="speed">速度：高 → 低</option></select>
+        <span class="filterhint">可优选 = 使用当前 SNI 完成 TCP → TLS → HTTP 并收到响应；其余均归为失败。</span>
       </div>
 
-      <div class="tablewrap">
+      <div class="result-actions">
+        <select class="scope" id="scopeSelect"><option value="eligible">全部可优选</option><option value="selected">已勾选</option></select>
+        <select class="scope" id="speedPreset"><option value="auto">测速源：自动</option><option value="speed.cloudflare.com/__down?bytes=99999999">测速源：Cloudflare</option><option value="custom">测速源：自定义</option></select>
+        <input class="input hidden" id="speedCustom" style="width:190px;height:35px" placeholder="example.com/file.bin">
+        <button class="btn primary mini" id="speedBtn">🚀 一键测速</button>
+        <button class="btn soft mini" id="continueSpeedBtn">⏭ 继续测速</button>
+        <button class="btn soft mini hidden" id="stopSpeedBtn">■ 停止测速</button>
+        <button class="btn soft mini" id="copyBtn">📋 一键复制</button>
+        <button class="btn soft mini" id="resetSortBtn">↕ 原始顺序</button>
+        <span class="spacer"></span>
+        <button class="btn soft mini" id="exportTxt">▤ 导出 TXT</button>
+        <button class="btn soft mini" id="exportCsv">▦ 导出 CSV</button>
+      </div>
+
+      <div class="tablewrap" id="tablewrap">
         <table>
           <thead><tr>
-            <th><input type="checkbox" id="selectPage" title="勾选当前页"></th>
-            <th class="sortable" data-sort="inputIndex">#</th>
-            <th class="sortable" data-sort="endpoint">IP:端口</th>
-            <th class="sortable" data-sort="stage">状态</th>
-            <th class="sortable" data-sort="tcpMs">TCP</th>
-            <th class="sortable" data-sort="tlsMs">TLS</th>
-            <th class="sortable" data-sort="ttfbMs">TTFB</th>
-            <th class="sortable" data-sort="httpStatus">HTTP</th>
-            <th class="sortable" data-sort="cfConfirmed">CF</th>
-            <th class="sortable" data-sort="colo">机房</th>
-            <th class="sortable" data-sort="exitIp">出口 IP</th>
-            <th class="sortable" data-sort="entryAsn">入口 ASN / 运营商</th>
-            <th class="sortable" data-sort="exitAsn">出口 ASN / 运营商</th>
-            <th class="sortable" data-sort="speedMBps">速度</th>
+            <th class="checkcol sticky"><input type="checkbox" id="checkPage"></th>
+            <th class="sortable" data-sort="inputIndex">#<span class="sortmark"></span></th>
+            <th class="sortable" data-sort="endpoint">IP:端口<span class="sortmark"></span></th>
+            <th class="sortable" data-sort="status">状态<span class="sortmark"></span></th>
+            <th class="sortable" data-sort="tcpMs">TCP<span class="sortmark"></span></th>
+            <th class="sortable" data-sort="tlsMs">TLS<span class="sortmark"></span></th>
+            <th class="sortable" data-sort="ttfbMs" title="TTFB">首包响应<span class="sortmark"></span></th>
+            <th class="sortable" data-sort="httpStatus">HTTP<span class="sortmark"></span></th>
+            <th class="sortable" data-sort="colo">机房<span class="sortmark"></span></th>
+            <th class="sortable" data-sort="asnDisplay">ASN / 运营商<span class="sortmark"></span></th>
+            <th class="sortable" data-sort="exitIp">出口 IP<span class="sortmark"></span></th>
+            <th class="sortable" data-sort="speedMBps">速度<span class="sortmark"></span></th>
             <th>说明</th>
           </tr></thead>
-          <tbody id="tbody"><tr><td colspan="15" style="text-align:center;color:#8390a3;padding:32px">导入候选后开始测试</td></tr></tbody>
+          <tbody id="tbody"><tr><td colspan="13" style="text-align:center;color:#8390a3;padding:34px">导入候选后开始测试</td></tr></tbody>
         </table>
       </div>
 
       <div class="pager">
-        <button class="btn soft" id="prevPage">‹ 上一页</button><button class="btn soft" id="nextPage">下一页 ›</button>
-        <span class="info" id="pageInfo">第 1 / 1 页</span><div class="spacer"></div><span class="info">每页</span>
-        <select id="pageSize"><option value="25">25</option><option value="50" selected>50</option><option value="100">100</option></select>
-        <span class="info" id="selectedInfo">已选 0</span>
+        <div class="info" id="pageInfo">第 1 / 1 页 · 共 0 条</div>
+        <span class="spacer"></span>
+        <span class="info">每页</span>
+        <select id="pageSize"><option>25</option><option selected>50</option><option>100</option></select>
+        <button class="btn soft mini" id="prevPage">‹ 上一页</button>
+        <button class="btn soft mini" id="nextPage">下一页 ›</button>
       </div>
     </section>
   </main>
 </div>
 <div class="toast" id="toast"></div>
+
 <script>
 const $=id=>document.getElementById(id);
-let socket=null,running='',tls=true,insecure=false,results=[],fileName='manual.txt',targetTotal=0,page=1,pageSize=50,sortKey='inputIndex',sortDir='asc';
-const selected=new Set();let renderTimer=null;
-function toast(msg){const el=$('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('show'),2800)}
-function connect(){const proto=location.protocol==='https:'?'wss:':'ws:';socket=new WebSocket(proto+'//'+location.host+'/ws');socket.onopen=()=>toast('本地引擎已连接');socket.onclose=()=>{if(running){toast('本地引擎连接已断开');finishTask()}setTimeout(connect,1800)};socket.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch{return}handleMessage(m.type,m.data)}}
-function send(type,data={}){if(!socket||socket.readyState!==1){toast('本地引擎尚未连接');return false}socket.send(JSON.stringify({type,data}));return true}
-function handleMessage(type,data){
-  if(type==='error'){toast(typeof data==='string'?data:'任务错误');finishTask();return}
-  if(type==='proxy_started'){targetTotal=Number(data.total||0);results=[];selected.clear();page=1;setProgress(0,targetTotal,'开始本地测试','TCP / TLS / HTTP');updateStats();scheduleRender();return}
-  if(type==='proxy_result'){upsertProxy(data);scheduleRender();return}
-  if(type==='proxy_progress'){setProgress(Number(data.current||0),Number(data.total||0),data.text||'本地测试中','已完成 '+Number(data.current||0)+' / '+Number(data.total||0));return}
-  if(type==='proxy_complete'){if(Array.isArray(data.results)){const speedMap=new Map(results.map(r=>[keyOf(r),{speedMBps:r.speedMBps,speedText:r.speedText}]));results=data.results.map(r=>Object.assign(r,speedMap.get(keyOf(r))||{}))}targetTotal=Math.max(targetTotal,results.length);finishTask();setProgress(results.length,targetTotal,data.partial?'已停止，保留当前结果':'测试完成','共 '+results.length+' 条结果');updateStats();scheduleRender();return}
-  if(type==='nsb_scan_result'){updateSpeedResult(data);scheduleRender();return}
-  if(type==='nsb_progress'){setProgress(Number(data.current||0),Number(data.total||0),data.text||'测速中','批量测速');return}
-  if(type==='nsb_speed_complete'){finishTask();$('progressTitle').textContent='测速完成';$('progressSub').textContent='测速结果已写入当前表格';$('progressBar').style.width='100%';$('progressPct').textContent='100%';scheduleRender();return}
-}
-function finishTask(){running='';$('startBtn').classList.remove('hidden');$('stopBtn').classList.add('hidden');$('ring').classList.remove('running');setActionDisabled(false)}
-function setActionDisabled(disabled){['speedBtn','continueSpeedBtn','copyBtn','exportTxt','exportCsv'].forEach(id=>$(id).disabled=disabled)}
-function setProgress(cur,total,title,sub){const pct=total?Math.max(0,Math.min(100,Math.round(cur/total*100))):0;$('progressTitle').textContent=title;$('progressSub').textContent=sub;$('progressBar').style.width=pct+'%';$('progressPct').textContent=pct+'%'}
-function keyOf(r){return r.endpoint||((r.ip||'')+':'+(r.port||''))}
-function upsertProxy(row){const k=keyOf(row),i=results.findIndex(x=>keyOf(x)===k);if(i>=0){const old=results[i];results[i]=Object.assign({},row,{speedMBps:old.speedMBps,speedText:old.speedText})}else results.push(row);updateStats()}
-function updateSpeedResult(data){const k=String(data.ip||'')+':'+String(data.port||''),i=results.findIndex(x=>keyOf(x)===k);if(i<0)return;const text=String(data.speed||'').trim();results[i].speedText=text;const m=text.match(/([0-9.]+)\s*MB\/s/i);results[i].speedMBps=m?Number(m[1]):0}
-function updateStats(){const tested=results.length,tcp=results.filter(r=>Number(r.tcpSuccesses)>0).length,http=results.filter(r=>Number(r.httpSuccesses)>0).length;$('statTotal').textContent=targetTotal||tested;$('statTested').textContent=tested;$('statTCP').textContent=tcp;$('statHTTP').textContent=http}
-function scheduleRender(){if(renderTimer)return;renderTimer=setTimeout(()=>{renderTimer=null;render()},70)}
-function stageText(stage){return stage==='http'?'HTTP 响应':stage==='tls'?'TLS 成功':stage==='tcp'?'TCP 可达':'失败'}
-function fmtMs(v){return Number(v)>0?Number(v)+'ms':'--'}
+let socket=null,tls=true,insecure=false,runningProbe=false,runningSpeed=false,results=[],fileName='manual.txt';
+let page=1,pageSize=50,sortKey='inputIndex',sortDir=1,selected=new Set(),renderTimer=null,importedCount=0;
+
+function toast(msg){const el=$('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('show'),2600)}
 function esc(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
-function num(id){const v=Number($(id).value);return Number.isFinite(v)&&v>0?v:0}
+function keyOf(r){return r.endpoint||((r.ip||'')+':'+(r.port||''))}
+function num(v){const n=Number(v);return Number.isFinite(n)?n:0}
+function ms(v){return num(v)>0?num(v).toFixed(0)+'ms':'--'}
+function stageOf(r){if(r.stage)return r.stage;if(num(r.httpSuccesses)>0)return'http';if(num(r.tlsSuccesses)>0)return'tls';if(num(r.tcpSuccesses)>0)return'tcp';return'failed'}
+function stageText(stage){return({http:'HTTP 响应',tls:'TLS 未完成 HTTP',tcp:'仅 TCP 可达',failed:'失败'})[stage]||stage||'--'}
+function statusOf(r){return num(r.httpSuccesses)>0?'success':'failed'}
+function statusText(status){return status==='failed'?'失败':'可优选'}
+function asnDisplay(r){const entry=[r.entryAsn,r.entryOrg].filter(Boolean).join(' · '),exit=[r.exitAsn,r.exitOrg].filter(Boolean).join(' · ');if(entry&&exit&&entry!==exit)return entry+' → '+exit;return exit||entry||'--'}
+function parseSpeedText(text){const m=String(text||'').match(/([\d.]+)\s*MB\/s/i);return m?Number(m[1]):0}
+
+function connect(){
+  const proto=location.protocol==='https:'?'wss:':'ws:';
+  socket=new WebSocket(proto+'//'+location.host+'/ws');
+  socket.onopen=()=>toast('本地引擎已连接');
+  socket.onclose=()=>{if(runningProbe||runningSpeed){toast('本地引擎连接已断开');finishAll()}setTimeout(connect,1800)};
+  socket.onmessage=e=>{let m;try{m=JSON.parse(e.data)}catch{return}handleMessage(m.type,m.data)}
+}
+function send(type,data={}){if(!socket||socket.readyState!==1){toast('本地引擎尚未连接');return false}socket.send(JSON.stringify({type,data}));return true}
+
+function handleMessage(type,data){
+  if(type==='error'){
+    toast(typeof data==='string'?data:'任务错误');
+    if(runningSpeed)finishSpeed();else if(runningProbe)finishProbe();
+    return
+  }
+  if(type==='proxy_started'){
+    results=[];selected.clear();page=1;updateSummary();scheduleRender(true);return
+  }
+  if(type==='proxy_result'){
+    upsert(data);scheduleRender();return
+  }
+  if(type==='proxy_progress'){
+    setProgress(data.text||'本地测试中',num(data.current)+' / '+num(data.total),num(data.current),num(data.total));return
+  }
+  if(type==='proxy_complete'){
+    results=Array.isArray(data.results)?data.results:results;
+    normalizeResults();
+    updateSummary();scheduleRender(true);finishProbe();
+    setProgress(data.partial?'已停止，保留当前结果':'测试完成','共 '+results.length+' 条结果',results.length,results.length);
+    return
+  }
+  if(type==='nsb_scan_result'&&runningSpeed){
+    applySpeedResult(data);scheduleRender();return
+  }
+  if(type==='nsb_progress'&&runningSpeed&&data.phase==='speed'){
+    setProgress(data.text||'测速中',num(data.current)+' / '+num(data.total),num(data.current),num(data.total));return
+  }
+  if(type==='nsb_speed_complete'&&runningSpeed){
+    finishSpeed();setProgress('测速完成','测速结果已写入当前表格',1,1);scheduleRender(true);return
+  }
+  if(type==='task_stopped'){
+    if(runningSpeed){finishSpeed();setProgress('测速已停止','已保留完成的测速结果',0,0);scheduleRender(true);return}
+    if(runningProbe){finishProbe();setProgress('测试已停止','已保留当前测试结果',0,0);scheduleRender(true);return}
+  }
+  if(type==='log'&&typeof data==='string')console.log('[engine]',data)
+}
+
+function setProgress(title,sub,current,total){
+  $('progressTitle').textContent=title;$('progressSub').textContent=sub;
+  const pct=total?Math.max(0,Math.min(100,Math.round(current/total*100))):0;
+  $('progressBar').style.width=pct+'%';$('progressPct').textContent=pct+'%';
+}
+function setBusy(on){$('ring').classList.toggle('idle',!on)}
+function finishProbe(){runningProbe=false;$('startBtn').classList.remove('hidden');if(!runningSpeed)$('stopBtn').classList.add('hidden');setBusy(runningSpeed)}
+function finishSpeed(){runningSpeed=false;$('speedBtn').disabled=false;$('continueSpeedBtn').disabled=false;$('stopSpeedBtn').classList.add('hidden');$('stopSpeedBtn').disabled=false;if(!runningProbe)$('stopBtn').classList.add('hidden');setBusy(runningProbe)}
+function finishAll(){runningProbe=false;runningSpeed=false;$('startBtn').classList.remove('hidden');$('stopBtn').classList.add('hidden');$('stopSpeedBtn').classList.add('hidden');$('stopSpeedBtn').disabled=false;$('speedBtn').disabled=false;$('continueSpeedBtn').disabled=false;setBusy(false)}
+
+function normalizeResults(){results.forEach((r,i)=>{if(r.inputIndex===undefined||r.inputIndex===null)r.inputIndex=i;if(!r.speedMBps&&r.speedText)r.speedMBps=parseSpeedText(r.speedText)})}
+function upsert(row){
+  const k=keyOf(row),i=results.findIndex(x=>keyOf(x)===k);
+  if(i>=0){const keepSpeed=results[i].speedMBps||0,keepText=results[i].speedText||'';results[i]={...results[i],...row};if(keepSpeed&&!results[i].speedMBps)results[i].speedMBps=keepSpeed;if(keepText&&!results[i].speedText)results[i].speedText=keepText}
+  else results.push(row);
+  updateSummary()
+}
+function applySpeedResult(data){
+  const k=(data.ip||'')+':'+String(data.port||''),i=results.findIndex(r=>keyOf(r)===k);
+  if(i<0)return;
+  const speedText=String(data.speed||'');
+  results[i].speedText=speedText;
+  results[i].speedMBps=parseSpeedText(speedText);
+  results[i].speedMbps=results[i].speedMBps*8
+}
+
+function updateSummary(){
+  const eligible=results.filter(r=>statusOf(r)==='success').length,failed=results.filter(r=>statusOf(r)==='failed').length;
+  $('statTotal').textContent=importedCount||results.length;
+  $('statTested').textContent=results.length;
+  $('statEligible').textContent=eligible;
+  $('statFailed').textContent=failed;
+  $('resultSummary').textContent=results.length+' 条已测试 · 可优选 '+eligible+' · 失败 '+failed
+}
+
+function filterValue(id){return String($(id).value||'').trim()}
 function filteredRows(){
-  const q=$('filterSearch').value.trim().toLowerCase(),stage=$('filterStage').value,port=num('filterPort'),colo=$('filterColo').value.trim().toLowerCase(),asn=$('filterAsn').value.trim().toLowerCase(),tcpMax=num('filterTcpMax'),speedMin=num('filterSpeedMin');
-  let rows=results.filter(r=>{
-    const hay=[r.endpoint,r.ip,r.entryAsn,r.entryOrg,r.exitAsn,r.exitOrg,r.exitIp,r.colo,r.loc].join(' ').toLowerCase();
-    const asnHay=[r.entryAsn,r.entryOrg,r.exitAsn,r.exitOrg].join(' ').toLowerCase();
-    if(q&&!hay.includes(q))return false;if(stage!=='all'&&r.stage!==stage)return false;if(port&&Number(r.port)!==port)return false;if(colo&&!String(r.colo||'').toLowerCase().includes(colo))return false;if(asn&&!asnHay.includes(asn))return false;if(tcpMax&&(!Number(r.tcpMs)||Number(r.tcpMs)>tcpMax))return false;if(speedMin&&Number(r.speedMBps||0)<speedMin)return false;return true;
-  });
-  return sortRows(rows)
+  const q=filterValue('filterSearch').toLowerCase(),status=filterValue('filterStatus');
+  return results.filter(r=>{
+    if(status&&statusOf(r)!==status)return false;
+    if(q){const hay=[r.endpoint,r.ip,r.exitIp,r.entryAsn,r.entryOrg,r.exitAsn,r.exitOrg,r.colo,r.loc].join(' ').toLowerCase();if(!hay.includes(q))return false}
+    return true
+  })
 }
-function sortRows(rows){const dir=sortDir==='asc'?1:-1;return rows.slice().sort((a,b)=>{let av=a[sortKey],bv=b[sortKey];if(sortKey==='inputIndex'){av=Number(av||0);bv=Number(bv||0)}else if(['tcpMs','tlsMs','ttfbMs','httpStatus','speedMBps'].includes(sortKey)){av=Number(av||0);bv=Number(bv||0)}else if(sortKey==='cfConfirmed'){av=a.cfConfirmed?1:0;bv=b.cfConfirmed?1:0}else{av=String(av||'').toLowerCase();bv=String(bv||'').toLowerCase()}if(av<bv)return-dir;if(av>bv)return dir;return Number(a.inputIndex||0)-Number(b.inputIndex||0)})}
-function pageRows(){const rows=filteredRows(),pages=Math.max(1,Math.ceil(rows.length/pageSize));if(page>pages)page=pages;const start=(page-1)*pageSize;return{rows:rows.slice(start,start+pageSize),all:rows,pages,start}}
+function compareVal(a,b,key){
+  if(key==='status')return statusOf(a).localeCompare(statusOf(b));
+  if(key==='asnDisplay')return asnDisplay(a).localeCompare(asnDisplay(b),'zh-CN',{numeric:true,sensitivity:'base'});
+  if(['tcpMs','tlsMs','ttfbMs','speedMBps'].includes(key)){
+    const av=num(a[key]),bv=num(b[key]);
+    if(!av&&!bv)return 0;if(!av)return 1;if(!bv)return -1;return (av-bv)*sortDir
+  }
+  let av=a[key],bv=b[key];
+  const numeric=['inputIndex','httpStatus'];
+  if(numeric.includes(key))return (num(av)-num(bv))*sortDir;
+  if(key==='cfConfirmed')return (Number(!!av)-Number(!!bv))*sortDir;
+  return String(av??'').localeCompare(String(bv??''),'zh-CN',{numeric:true,sensitivity:'base'})*sortDir
+}
+function sortedFilteredRows(){
+  const rows=filteredRows().slice();
+  rows.sort((a,b)=>{const c=compareVal(a,b,sortKey);return c===0?(num(a.inputIndex)-num(b.inputIndex)):c});
+  return rows
+}
+function pageRows(){
+  const rows=sortedFilteredRows(),pages=Math.max(1,Math.ceil(rows.length/pageSize));if(page>pages)page=pages;if(page<1)page=1;
+  return rows.slice((page-1)*pageSize,page*pageSize)
+}
+function scheduleRender(immediate=false){
+  if(immediate){clearTimeout(renderTimer);renderTimer=null;render();return}
+  if(renderTimer)return;
+  renderTimer=setTimeout(()=>{renderTimer=null;render()},120)
+}
 function render(){
-  const p=pageRows();$('resultCount').textContent=p.all.length+' 条（总结果 '+results.length+'）';$('pageInfo').textContent='第 '+page+' / '+p.pages+' 页';$('prevPage').disabled=page<=1;$('nextPage').disabled=page>=p.pages;$('selectedInfo').textContent='已选 '+selected.size;
-  if(!p.rows.length){$('tbody').innerHTML='<tr><td colspan="15" style="text-align:center;color:#8390a3;padding:30px">当前筛选暂无结果</td></tr>';$('selectPage').checked=false;return}
-  $('tbody').innerHTML=p.rows.map((r,idx)=>{const k=keyOf(r),checked=selected.has(k)?' checked':'',asn=[r.entryAsn,r.entryOrg].filter(Boolean).join(' · ')||'--',exitAsn=[r.exitAsn,r.exitOrg].filter(Boolean).join(' · ')||'--',speed=r.speedText||'未测速',err=r.error||'--';return '<tr class="stage-'+esc(r.stage||'failed')+'"><td><input class="rowcheck" type="checkbox" data-key="'+esc(k)+'"'+checked+'></td><td>'+(Number(r.inputIndex||0)+1)+'</td><td>'+esc(k)+'</td><td><span class="status"><i class="dot"></i>'+stageText(r.stage)+'</span></td><td>'+fmtMs(r.tcpMs)+'</td><td>'+fmtMs(r.tlsMs)+'</td><td>'+fmtMs(r.ttfbMs)+'</td><td>'+(Number(r.httpStatus)||'--')+'</td><td>'+(r.cfConfirmed?'✓':'--')+'</td><td>'+esc(r.colo||r.loc||'--')+'</td><td>'+esc(r.exitIp||'--')+'</td><td class="asn" title="'+esc(asn)+'">'+esc(asn)+'</td><td class="asn" title="'+esc(exitAsn)+'">'+esc(exitAsn)+'</td><td>'+esc(speed)+'</td><td class="err" title="'+esc(err)+'">'+esc(err)+'</td></tr>'}).join('');
-  document.querySelectorAll('.rowcheck').forEach(el=>el.onchange=()=>{el.checked?selected.add(el.dataset.key):selected.delete(el.dataset.key);$('selectedInfo').textContent='已选 '+selected.size;syncSelectPage()});syncSelectPage();
+  const all=sortedFilteredRows(),pages=Math.max(1,Math.ceil(all.length/pageSize));if(page>pages)page=pages;
+  const rows=all.slice((page-1)*pageSize,page*pageSize);
+  if(!rows.length){
+    $('tbody').innerHTML='<tr><td colspan="13" style="text-align:center;color:#8390a3;padding:32px">当前结果为空</td></tr>'
+  }else{
+    $('tbody').innerHTML=rows.map(r=>{
+      const k=keyOf(r),status=statusOf(r),asn=asnDisplay(r),speed=num(r.speedMBps)>0?num(r.speedMBps).toFixed(2)+' MB/s':(r.speedText?esc(r.speedText):'未测速');
+      const detail=r.error||((stageOf(r)==='http'?'HTTP '+(num(r.httpStatus)||'响应'):stageText(stageOf(r))));
+      return '<tr>'+
+        '<td class="checkcol sticky"><input type="checkbox" class="rowcheck" data-key="'+esc(k)+'" '+(selected.has(k)?'checked':'')+'></td>'+
+        '<td>'+(num(r.inputIndex)+1)+'</td>'+
+        '<td title="'+esc(k)+'">'+esc(k)+'</td>'+
+        '<td><span class="stage '+status+'"><span class="dot"></span>'+statusText(status)+'</span></td>'+
+        '<td>'+ms(r.tcpMs)+'</td><td>'+ms(r.tlsMs)+'</td><td>'+ms(r.ttfbMs)+'</td>'+
+        '<td>'+(num(r.httpStatus)||'--')+'</td>'+
+        '<td>'+esc(r.colo||r.loc||'--')+'</td>'+
+        '<td title="'+esc(asn)+'">'+esc(asn)+'</td>'+
+        '<td>'+esc(r.exitIp||'--')+'</td>'+
+        '<td title="'+(num(r.speedMBps)>0?(num(r.speedMBps)*8).toFixed(1)+' Mbps':'')+'">'+speed+'</td>'+
+        '<td title="'+esc(detail)+'">'+esc(detail||'--')+'</td>'+
+      '</tr>'
+    }).join('')
+  }
+  $('pageInfo').textContent='第 '+page+' / '+pages+' 页 · 筛选 '+all.length+' / 总结果 '+results.length+' 条';
+  $('prevPage').disabled=page<=1;$('nextPage').disabled=page>=pages;
+  const keys=rows.map(keyOf);$('checkPage').checked=!!keys.length&&keys.every(k=>selected.has(k));$('checkPage').indeterminate=keys.some(k=>selected.has(k))&&!$('checkPage').checked;
+  document.querySelectorAll('.rowcheck').forEach(ch=>ch.onchange=()=>{if(ch.checked)selected.add(ch.dataset.key);else selected.delete(ch.dataset.key);renderSelectionState()});
+  updateSortMarks()
 }
-function syncSelectPage(){const rows=pageRows().rows;$('selectPage').checked=rows.length>0&&rows.every(r=>selected.has(keyOf(r)))}
-function resetPage(){page=1;scheduleRender()}
-function getScopeRows(){const scope=$('actionScope').value;if(scope==='all')return results.slice();if(scope==='selected')return results.filter(r=>selected.has(keyOf(r)));if(scope==='page')return pageRows().rows.slice();return filteredRows()}
-function parseLocalCount(text){return text.split(/\r?\n/).map(x=>x.trim()).filter(x=>x&&!x.startsWith('#')&&!(/^proxyip\s*,\s*port/i.test(x)||/^ip\s*,\s*port/i.test(x))).length}
-function refreshImport(){const text=$('candidates').value,count=parseLocalCount(text);$('importCount').textContent='已导入 '+count+' 条';$('preview').textContent=text.trim()?text.split(/\r?\n/).slice(0,10).join('\n')+(count>10?'\n…':''):'等待导入候选…'}
-async function readFile(file){fileName=file.name;const text=await file.text();$('candidates').value=text;refreshImport();toast('已导入 '+file.name)}
-function toggleSwitch(el,on,textEl){el.classList.toggle('on',on);$(textEl).textContent=on?'开启':'关闭'}
-function speedURL(){const p=$('speedPreset').value;if(p==='custom')return $('speedCustom').value.trim();return p}
-function startSpeed(skipTested){const rows=getScopeRows();if(!rows.length){toast('当前操作范围没有结果');return}const url=speedURL();if(!url){toast('请填写自定义测速地址');return}const payloadRows=rows.map(r=>({ip:r.ip,port:String(r.port),dc:r.colo||'',loc:r.loc||'',latency:r.tcpMs?String(r.tcpMs)+'ms':'',outboundIP:r.exitIp||'',asnNumber:r.exitAsn||'',asnOrg:r.exitOrg||'',speed:r.speedText||''}));running='speed';$('startBtn').classList.add('hidden');$('stopBtn').classList.remove('hidden');$('ring').classList.add('running');setActionDisabled(true);setProgress(0,rows.length,skipTested?'继续测速':'一键测速','测速不会改变节点状态');if(!send('start_nsb_speed_batch',{results:payloadRows,speedTest:Number($('speedThreads').value||1),speedURL:url,enableTLS:tls,speedMin:.01,speedLimit:rows.length,skipTested,compact:true})){finishTask()}}
-function csvCell(v){return '"'+String(v??'').replaceAll('"','""')+'"'}
+function renderSelectionState(){const rows=pageRows(),keys=rows.map(keyOf);$('checkPage').checked=!!keys.length&&keys.every(k=>selected.has(k));$('checkPage').indeterminate=keys.some(k=>selected.has(k))&&!$('checkPage').checked}
+function updateSortMarks(){document.querySelectorAll('th.sortable').forEach(th=>{const m=th.querySelector('.sortmark');m.textContent=th.dataset.sort===sortKey?(sortDir>0?'▲':'▼'):''})}
+function scopeRows(){
+  const scope=$('scopeSelect').value;
+  if(scope==='selected')return results.filter(r=>selected.has(keyOf(r)));
+  return results.filter(r=>statusOf(r)==='success')
+}
+function nsbRows(rows){return rows.map(r=>({ip:r.ip,port:String(r.port),speed:r.speedText||''}))}
+function startSpeed(skipTested){
+  if(runningProbe||runningSpeed){toast('当前已有任务运行中');return}
+  const rows=scopeRows();if(!rows.length){toast($('scopeSelect').value==='selected'?'请先勾选节点':'没有可优选节点可测速');return}
+  const preset=$('speedPreset').value,url=preset==='custom'?filterValue('speedCustom'):(preset||'auto'),workers=Math.max(1,Math.min(10,num($('speedThreads').value)||1));
+  if(!url){toast('请填写自定义测速地址');return}
+  runningSpeed=true;setBusy(true);$('speedBtn').disabled=true;$('continueSpeedBtn').disabled=true;$('stopSpeedBtn').classList.remove('hidden');$('stopSpeedBtn').disabled=false;
+  setProgress(skipTested?'继续测速中':'测速中','准备 '+rows.length+' 条',0,rows.length);
+  if(!send('start_nsb_speed_batch',{results:nsbRows(rows),speedTest:workers,speedURL:url,enableTLS:tls,speedMin:0.01,speedLimit:rows.length,skipTested,compact:true}))finishSpeed()
+}
+
 function download(name,text,type='text/plain'){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500)}
-function exportRows(){const rows=getScopeRows();if(!rows.length){toast('当前操作范围没有结果');return null}return rows}
-$('importBtn').onclick=()=>$('fileInput').click();$('fileInput').onchange=e=>{if(e.target.files[0])readFile(e.target.files[0])};$('pasteBtn').onclick=async()=>{try{const t=await navigator.clipboard.readText();if(t){$('candidates').value=t;fileName='clipboard.txt';refreshImport();toast('已从剪贴板导入')}}catch{toast('浏览器未授权读取剪贴板，可直接点击导入区域粘贴')}};$('candidates').oninput=refreshImport;
+function copyRows(rows){
+  if(!rows.length){toast('当前范围没有结果');return}
+  navigator.clipboard.writeText(rows.map(r=>keyOf(r)).join('\n')).then(()=>toast('已复制 '+rows.length+' 条')).catch(()=>toast('浏览器未授权写入剪贴板'))
+}
+function csvCell(v){return '"'+String(v??'').replaceAll('"','""')+'"'}
+function exportCSV(rows){
+  if(!rows.length){toast('当前范围没有结果');return}
+  const headers=['序号','IP','端口','状态','连接阶段','TCP_ms','TLS_ms','首包响应_ms','HTTP状态','机房','地区','出口IP','入口ASN','入口组织','出口ASN','出口组织','速度_MBps','速度_Mbps','错误说明'];
+  const body=rows.map(r=>[
+    num(r.inputIndex)+1,r.ip,r.port,statusText(statusOf(r)),stageText(stageOf(r)),num(r.tcpMs)||'',num(r.tlsMs)||'',num(r.ttfbMs)||'',num(r.httpStatus)||'',r.colo||'',r.loc||'',r.exitIp||'',r.entryAsn||'',r.entryOrg||'',r.exitAsn||'',r.exitOrg||'',num(r.speedMBps)||'',num(r.speedMBps)?(num(r.speedMBps)*8).toFixed(2):'',r.error||''
+  ].map(csvCell).join(','));
+  download('cf-ip-results.csv','\ufeff'+[headers.map(csvCell).join(','),...body].join('\r\n'),'text/csv')
+}
+function exportTXT(rows){if(!rows.length){toast('当前范围没有结果');return}download('cf-ip-results.txt',rows.map(r=>keyOf(r)).join('\n')+'\n')}
+
+function toggleSwitch(el,on,textEl){el.classList.toggle('on',on);$(textEl).textContent=on?'开启':'关闭'}
+$('tlsSwitch').onclick=()=>{tls=!tls;toggleSwitch($('tlsSwitch'),tls,'tlsText')};
+$('insecureSwitch').onclick=()=>{insecure=!insecure;toggleSwitch($('insecureSwitch'),insecure,'insecureText')};
+
+function parseLocalCount(text){return text.split(/\r?\n/).map(x=>x.trim()).filter(x=>x&&!x.startsWith('#')&&!(/^proxyip\s*,\s*port/i.test(x)||/^ip\s*,\s*port/i.test(x))).length}
+function refreshImport(){const text=$('candidates').value;importedCount=parseLocalCount(text);$('importCount').textContent='已导入 '+importedCount+' 条';$('preview').textContent=text.trim()?text.split(/\r?\n/).slice(0,10).join('\n')+(importedCount>10?'\n…':''):'等待导入候选…';updateSummary()}
+async function readFile(file){fileName=file.name;const text=await file.text();$('candidates').value=text;refreshImport();toast('已导入 '+file.name)}
+$('importBtn').onclick=()=>$('fileInput').click();$('fileInput').onchange=e=>{if(e.target.files[0])readFile(e.target.files[0])};
+$('pasteBtn').onclick=async()=>{try{const t=await navigator.clipboard.readText();if(t){$('candidates').value=t;fileName='clipboard.txt';refreshImport();toast('已从剪贴板导入')}}catch{toast('浏览器未授权读取剪贴板，可直接点击导入区域粘贴')}};
+$('candidates').oninput=refreshImport;
 const dz=$('dropzone');['dragenter','dragover'].forEach(n=>dz.addEventListener(n,e=>{e.preventDefault();dz.classList.add('drag')}));['dragleave','drop'].forEach(n=>dz.addEventListener(n,e=>{e.preventDefault();dz.classList.remove('drag')}));dz.addEventListener('drop',e=>{if(e.dataTransfer.files[0])readFile(e.dataTransfer.files[0])});
-$('tlsSwitch').onclick=()=>{tls=!tls;toggleSwitch($('tlsSwitch'),tls,'tlsText')};$('insecureSwitch').onclick=()=>{insecure=!insecure;toggleSwitch($('insecureSwitch'),insecure,'insecureText')};
-$('startBtn').onclick=()=>{const text=$('candidates').value.trim();if(!text){toast('先导入候选 IP');return}const sni=$('sni').value.trim();if(tls&&!sni)toast('SNI 为空：本轮只测试 TCP');running='scan';results=[];selected.clear();page=1;targetTotal=parseLocalCount(text);updateStats();scheduleRender();$('startBtn').classList.add('hidden');$('stopBtn').classList.remove('hidden');$('ring').classList.add('running');setActionDisabled(true);setProgress(0,targetTotal,'准备开始','本地链路测试');if(!send('start_proxy_task',{fileName,fileContent:text,fallbackPort:Number($('fallbackPort').value||443),sni,host:$('host').value.trim(),path:$('path').value.trim()||'/cdn-cgi/trace',enableTLS:tls,threads:Number($('threads').value||30),attempts:Number($('attempts').value||1),timeoutMs:Number($('timeoutMs').value||5000),insecure})){finishTask()}};
-$('stopBtn').onclick=()=>{send('stop_task');$('progressTitle').textContent='正在停止…'};
-['filterSearch','filterPort','filterColo','filterAsn','filterTcpMax','filterSpeedMin'].forEach(id=>$(id).oninput=resetPage);$('filterStage').onchange=resetPage;
-$('pageSize').onchange=()=>{pageSize=Number($('pageSize').value||50);page=1;render()};$('prevPage').onclick=()=>{if(page>1){page--;render()}};$('nextPage').onclick=()=>{const pages=pageRows().pages;if(page<pages){page++;render()}};
-$('selectPage').onchange=()=>{for(const r of pageRows().rows){const k=keyOf(r);$('selectPage').checked?selected.add(k):selected.delete(k)}render()};
-document.querySelectorAll('th.sortable').forEach(th=>th.onclick=()=>{const k=th.dataset.sort;if(sortKey===k)sortDir=sortDir==='asc'?'desc':'asc';else{sortKey=k;sortDir=['tcpMs','tlsMs','ttfbMs','httpStatus','speedMBps'].includes(k)?'asc':'asc'}page=1;render()});
-$('speedPreset').onchange=()=>{$('speedCustom').classList.toggle('hidden',$('speedPreset').value!=='custom')};$('speedBtn').onclick=()=>startSpeed(false);$('continueSpeedBtn').onclick=()=>startSpeed(true);
-$('copyBtn').onclick=async()=>{const rows=exportRows();if(!rows)return;await navigator.clipboard.writeText(rows.map(r=>keyOf(r)).join('\n'));toast('已复制 '+rows.length+' 条')};
-$('exportTxt').onclick=()=>{const rows=exportRows();if(!rows)return;download('cf-ip-results.txt',rows.map(r=>keyOf(r)).join('\n')+'\n')};
-$('exportCsv').onclick=()=>{const rows=exportRows();if(!rows)return;const h=['IP','Port','Stage','TCP_ms','TLS_ms','TTFB_ms','HTTP','CF','Colo','Exit_IP','Entry_ASN','Entry_Org','Exit_ASN','Exit_Org','Speed_MBps','Error'];const body=rows.map(r=>[r.ip,r.port,stageText(r.stage),r.tcpMs||'',r.tlsMs||'',r.ttfbMs||'',r.httpStatus||'',r.cfConfirmed?'yes':'',r.colo||r.loc||'',r.exitIp||'',r.entryAsn||'',r.entryOrg||'',r.exitAsn||'',r.exitOrg||'',r.speedMBps||'',r.error||''].map(csvCell).join(','));download('cf-ip-results.csv','\ufeff'+[h.join(','),...body].join('\r\n'),'text/csv')};
-$('saveDefaults').onclick=()=>{localStorage.setItem('cfIpSelectorConfig',JSON.stringify({sni:$('sni').value,path:$('path').value,host:$('host').value,fallbackPort:$('fallbackPort').value,threads:$('threads').value,attempts:$('attempts').value,timeoutMs:$('timeoutMs').value,speedThreads:$('speedThreads').value,tls,insecure,speedPreset:$('speedPreset').value,speedCustom:$('speedCustom').value}));toast('配置仅保存在当前浏览器本地')};
-function loadDefaults(){try{const c=JSON.parse(localStorage.getItem('cfIpSelectorConfig')||'{}');if(c.sni)$('sni').value=c.sni;if(c.path)$('path').value=c.path;if(c.host)$('host').value=c.host;if(c.fallbackPort)$('fallbackPort').value=c.fallbackPort;if(c.threads)$('threads').value=c.threads;if(c.attempts)$('attempts').value=c.attempts;if(c.timeoutMs)$('timeoutMs').value=c.timeoutMs;if(c.speedThreads)$('speedThreads').value=c.speedThreads;if(typeof c.tls==='boolean'){tls=c.tls;toggleSwitch($('tlsSwitch'),tls,'tlsText')}if(typeof c.insecure==='boolean'){insecure=c.insecure;toggleSwitch($('insecureSwitch'),insecure,'insecureText')}if(c.speedPreset)$('speedPreset').value=c.speedPreset;if(c.speedCustom)$('speedCustom').value=c.speedCustom;$('speedCustom').classList.toggle('hidden',$('speedPreset').value!=='custom')}catch{}}
-$('settingsBtn').onclick=()=>{$('advanced').open=!$('advanced').open;$('advanced').scrollIntoView({behavior:'smooth',block:'center'})};$('aboutBtn').onclick=()=>toast('CF优选IP筛选器 · 本地测试 / 筛选 / 测速 · GPL-3.0-or-later');
-loadDefaults();refreshImport();updateStats();render();connect();
+
+$('startBtn').onclick=()=>{
+  const text=$('candidates').value.trim();if(!text){toast('先导入候选 IP');return}
+  if(runningProbe||runningSpeed){toast('当前已有任务运行中');return}
+  const sni=$('sni').value.trim();if(!sni){toast('请先填写实际使用的 SNI');$('sni').focus();$('sni').classList.add('input-error');setTimeout(()=>$('sni').classList.remove('input-error'),1600);return}
+  results=[];selected.clear();page=1;updateSummary();render();runningProbe=true;setBusy(true);$('startBtn').classList.add('hidden');$('stopBtn').classList.remove('hidden');
+  setProgress('准备开始','本地链路测试',0,importedCount||1);
+  if(!send('start_proxy_task',{
+    fileName,fileContent:text,fallbackPort:Number($('fallbackPort').value||443),sni,host:$('host').value.trim(),path:$('path').value.trim()||'/cdn-cgi/trace',
+    enableTLS:tls,mode:'manual',threads:Number($('threads').value||30),timeoutMs:Number($('timeoutMs').value||5000),attempts:Number($('attempts').value||1),insecure
+  }))finishProbe()
+};
+$('stopBtn').onclick=()=>{if(runningProbe||runningSpeed){send('stop_task');$('progressTitle').textContent='正在停止…'}};
+
+['filterSearch','filterStatus'].forEach(id=>{const el=$(id);const evt=el.tagName==='INPUT'?'input':'change';el.addEventListener(evt,()=>{page=1;scheduleRender(true)})});
+$('sortSelect').onchange=()=>{const v=$('sortSelect').value;if(v==='tcp'){sortKey='tcpMs';sortDir=1}else if(v==='tls'){sortKey='tlsMs';sortDir=1}else if(v==='ttfb'){sortKey='ttfbMs';sortDir=1}else if(v==='speed'){sortKey='speedMBps';sortDir=-1}else{sortKey='inputIndex';sortDir=1}page=1;render()};
+$('pageSize').onchange=()=>{pageSize=Number($('pageSize').value||50);page=1;render()};
+$('prevPage').onclick=()=>{if(page>1){page--;render();$('tablewrap').scrollTop=0}};
+$('nextPage').onclick=()=>{const pages=Math.max(1,Math.ceil(sortedFilteredRows().length/pageSize));if(page<pages){page++;render();$('tablewrap').scrollTop=0}};
+$('checkPage').onchange=()=>{pageRows().forEach(r=>{const k=keyOf(r);if($('checkPage').checked)selected.add(k);else selected.delete(k)});render()};
+document.querySelectorAll('th.sortable').forEach(th=>th.onclick=()=>{const k=th.dataset.sort;if(sortKey===k)sortDir*=-1;else{sortKey=k;sortDir=k==='speedMBps'?-1:1}const map={inputIndex:'original',tcpMs:'tcp',tlsMs:'tls',ttfbMs:'ttfb',speedMBps:'speed'};$('sortSelect').value=map[k]||'original';page=1;render()});
+$('resetSortBtn').onclick=()=>{sortKey='inputIndex';sortDir=1;$('sortSelect').value='original';page=1;render()};
+$('speedPreset').onchange=()=>{$('speedCustom').classList.toggle('hidden',$('speedPreset').value!=='custom')};
+$('speedBtn').onclick=()=>startSpeed(false);$('continueSpeedBtn').onclick=()=>startSpeed(true);
+$('stopSpeedBtn').onclick=()=>{if(!runningSpeed)return;$('stopSpeedBtn').disabled=true;$('stopSpeedBtn').textContent='正在停止…';send('stop_task');$('progressTitle').textContent='正在停止测速…';setTimeout(()=>{$('stopSpeedBtn').textContent='■ 停止测速'},1000)};
+$('copyBtn').onclick=()=>copyRows(scopeRows());$('exportTxt').onclick=()=>exportTXT(scopeRows());$('exportCsv').onclick=()=>exportCSV(scopeRows());
+
+$('saveDefaults').onclick=()=>{
+  localStorage.setItem('cfIpSelectorConfig',JSON.stringify({
+    sni:$('sni').value,path:$('path').value,host:$('host').value,fallbackPort:$('fallbackPort').value,attempts:$('attempts').value,threads:$('threads').value,timeoutMs:$('timeoutMs').value,
+    speedThreads:$('speedThreads').value,speedPreset:$('speedPreset').value,speedCustom:$('speedCustom').value,tls,insecure
+  }));toast('配置仅保存在当前浏览器本地')
+};
+function loadDefaults(){try{
+  const c=JSON.parse(localStorage.getItem('cfIpSelectorConfig')||'{}');
+  ['sni','path','host','fallbackPort','attempts','threads','timeoutMs','speedThreads'].forEach(id=>{if(c[id]!==undefined&&c[id]!==null&&c[id]!=='')$(id).value=c[id]});
+  if(typeof c.tls==='boolean'){tls=c.tls;toggleSwitch($('tlsSwitch'),tls,'tlsText')}
+  if(typeof c.insecure==='boolean'){insecure=c.insecure;toggleSwitch($('insecureSwitch'),insecure,'insecureText')}
+  if(c.speedPreset)$('speedPreset').value=c.speedPreset;if(c.speedCustom)$('speedCustom').value=c.speedCustom;$('speedCustom').classList.toggle('hidden',$('speedPreset').value!=='custom')
+}catch{}}
+$('settingsBtn').onclick=()=>{$('advanced').open=!$('advanced').open;$('advanced').scrollIntoView({behavior:'smooth',block:'center'})};
+$('aboutBtn').onclick=()=>toast('CF优选IP筛选器 · 本地测试 / 排序 / 测速 / 导出 · GPL-3.0-or-later');
+
+loadDefaults();refreshImport();render();connect();
 </script>
 </body>
 </html>
