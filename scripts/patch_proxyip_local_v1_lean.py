@@ -5,13 +5,16 @@ go = root / 'combined_refactor'
 
 # Make the local Web product genuinely local/lean at startup: no geo probe,
 # no speed-source probe, and no release lookup just for opening the UI.
+# This helper is intentionally idempotent because CI may run it on an already-patched branch.
 server_path = go / 'server.go'
 server = server_path.read_text(encoding='utf-8')
-start = server.find('\tcfCountry := ""')
-end = server.find('\n\tsafeHandler := func', start)
-if start < 0 or end < 0:
-    raise SystemExit('server startup probe block not found')
-replacement = '''\tsession.sendWSMessage("init_config", map[string]interface{}{
+lean_marker = '"mode":    "proxy-local"'
+if lean_marker not in server:
+    start = server.find('\tcfCountry := ""')
+    end = server.find('\n\tsafeHandler := func', start)
+    if start < 0 or end < 0:
+        raise SystemExit('server startup probe block not found and lean marker missing')
+    replacement = '''\tsession.sendWSMessage("init_config", map[string]interface{}{
 \t\t"version": appVersion,
 \t\t"mode":    "proxy-local",
 \t})
@@ -19,8 +22,8 @@ replacement = '''\tsession.sendWSMessage("init_config", map[string]interface{}{
 \t\tsession.sendWSMessage("background_task_found", backgroundSession.backgroundSummary())
 \t}
 '''
-server = server[:start] + replacement + server[end:]
-server_path.write_text(server, encoding='utf-8')
+    server = server[:start] + replacement + server[end:]
+    server_path.write_text(server, encoding='utf-8')
 
 main_path = go / 'main.go'
 main = main_path.read_text(encoding='utf-8')
@@ -37,14 +40,24 @@ old_speed = '''\tstartupSpeedTestURL := speedTestURL
 \t\t}
 \t}
 '''
-if old_speed not in main:
-    raise SystemExit('main startup speed block not found')
-main = main.replace(old_speed, '', 1)
-if '\tinitLocations()\n\tif cliCfg.enabled {' not in main:
+if old_speed in main:
+    main = main.replace(old_speed, '', 1)
+elif 'startupSpeedTestURL :=' in main:
+    raise SystemExit('unexpected startup speed probe shape')
+
+old_locations = '\tinitLocations()\n\tif cliCfg.enabled {'
+new_locations = '\tif cliCfg.enabled {\n\t\tinitLocations()'
+if old_locations in main:
+    main = main.replace(old_locations, new_locations, 1)
+elif new_locations not in main:
     raise SystemExit('main initLocations block not found')
-main = main.replace('\tinitLocations()\n\tif cliCfg.enabled {', '\tif cliCfg.enabled {\n\t\tinitLocations()', 1)
+
 main = main.replace('\tgo checkAndPrintUpdate("")\n', '', 1)
-main = main.replace('\tfmt.Printf("当前测速网址: %s\\n", startupSpeedTestURL)\n', '\tfmt.Println("测速策略: 精准模式按需启用，不在启动时联网探测")\n', 1)
+if '\tfmt.Printf("当前测速网址: %s\\n", startupSpeedTestURL)\n' in main:
+    main = main.replace('\tfmt.Printf("当前测速网址: %s\\n", startupSpeedTestURL)\n', '\tfmt.Println("测速策略: 精准模式按需启用，不在启动时联网探测")\n', 1)
+elif '测速策略: 精准模式按需启用，不在启动时联网探测' not in main:
+    raise SystemExit('main speed strategy output not found')
+
 geo_block = '''\tif skipGeoCheck {
 \t\tfmt.Println("地区验证: 已跳过")
 \t} else {
