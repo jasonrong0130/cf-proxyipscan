@@ -5,7 +5,8 @@ on:
     branches:
       - feature/lightweight-speed-export-v4
     paths:
-      - tools/apply_v4.py
+      - tools/index_v4.patch.gz.b64
+      - tools/apply_v4_backend.py
       - .github/workflows/apply-v4.yml
 
 permissions:
@@ -18,8 +19,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: feature/lightweight-speed-export-v4
-      - name: Apply agreed V4 changes
-        run: python tools/apply_v4.py
+      - name: Apply V4 UI patch
+        run: |
+          base64 -d tools/index_v4.patch.gz.b64 | gzip -d > /tmp/index_v4.patch
+          git apply /tmp/index_v4.patch
+      - name: Apply V4 backend changes
+        run: python tools/apply_v4_backend.py
       - name: Format Go files
         run: |
           cd combined_refactor
@@ -30,5 +35,5 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add combined_refactor/index.html combined_refactor/proxy_local.go combined_refactor/proxy_geo.go combined_refactor/proxy_geo_test.go combined_refactor/proxy_local_test.go combined_refactor/proxy_local_integration_test.go combined_refactor/tasks_nsb.go combined_refactor/server.go
           git diff --cached --quiet && exit 0
-          git commit -m "feat: lighten scan and speedtest, add filtered export"
+          git commit -m "feat: lightweight scan, speed filters and export scopes"
           git push origin HEAD:feature/lightweight-speed-export-v4
