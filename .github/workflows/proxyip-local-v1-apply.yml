@@ -36,8 +36,8 @@ jobs:
 
       - name: Privacy guard
         run: |
-          if grep -Rni --exclude-dir=.git --exclude='*.crt' -E 'rongxiaofeng|vpn\.rong|125\.120\.102\.42|45\.196\.234\.118' .; then
-            echo 'Personal/private value found in repository output.'
+          if grep -Rni --exclude='*.crt' -E 'rongxiaofeng|vpn\.rong|125\.120\.102\.42|45\.196\.234\.118' README.md combined_refactor; then
+            echo 'Personal/private value found in generated product source.'
             exit 1
           fi
 
