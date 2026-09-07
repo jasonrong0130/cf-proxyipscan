@@ -25,12 +25,12 @@ func TestParseProxyCandidatesDeduplicatesAndKeepsPorts(t *testing.T) {
 	}
 }
 
-func TestBlankSNIIsTCPOnlyAndRetained(t *testing.T) {
-	cfg := normalizeProxyConfig(proxyLocalTaskRequest{EnableTLS: true, Mode: "standard"})
-	r := proxyLocalResult{Attempts: cfg.Attempts, TCPSuccesses: 2, TCPMS: 40}
+func TestBlankSNIIsTCPOnlyAndReportedFactually(t *testing.T) {
+	cfg := normalizeProxyConfig(proxyLocalTaskRequest{EnableTLS: true})
+	r := proxyLocalResult{Attempts: cfg.Attempts, TCPSuccesses: 1, TCPMS: 40}
 	classifyProxyResult(&r, cfg, 0)
-	if r.Status != "edge" || r.SuccessRate != 66 {
-		t.Fatalf("blank SNI candidate should be retained as edge, got %#v", r)
+	if r.Status != "success" || r.Stage != "tcp" || r.SuccessRate != 100 {
+		t.Fatalf("blank SNI candidate should report TCP reachability, got %#v", r)
 	}
 }
 
@@ -67,7 +67,7 @@ func TestHTTP403WithCloudflareHeadersIsNotRejected(t *testing.T) {
 	attempt := probeProxyOnce(ctx, proxyCandidate{Host: host, Port: port}, cfg)
 	<-done
 	if !attempt.TCP || !attempt.HTTP || !attempt.CF || !attempt.Strong || attempt.HTTPCode != 403 {
-		t.Fatalf("403 Cloudflare response should be retained as valid evidence: %#v", attempt)
+		t.Fatalf("403 Cloudflare response should remain factual evidence: %#v", attempt)
 	}
 }
 
@@ -91,7 +91,7 @@ func TestProxyLocalUIHasSafeDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 	html := string(data)
-	required := []string{"ProxyIP Optimizer", "start_proxy_task", "example.com", "Host 默认跟随 SNI"}
+	required := []string{"CF优选IP筛选器", "start_proxy_task", "example.com", "Host 默认跟随 SNI", "一键测速", "pageSize"}
 	for _, item := range required {
 		if !strings.Contains(html, item) {
 			t.Fatalf("UI missing required marker %q", item)
