@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -25,6 +24,7 @@ type proxyLocalTaskRequest struct {
 	Mode         string `json:"mode"`
 	Threads      int    `json:"threads"`
 	TimeoutMS    int    `json:"timeoutMs"`
+	Attempts     int    `json:"attempts"`
 	Insecure     bool   `json:"insecure"`
 	SpeedLimit   int    `json:"speedLimit"`
 }
@@ -35,16 +35,14 @@ type proxyCandidate struct {
 }
 
 type proxyProbeConfig struct {
-	SNI        string
-	Host       string
-	Path       string
-	EnableTLS  bool
-	Insecure   bool
-	Attempts   int
-	Threads    int
-	Timeout    time.Duration
-	Mode       string
-	SpeedLimit int
+	SNI       string
+	Host      string
+	Path      string
+	EnableTLS bool
+	Insecure  bool
+	Attempts  int
+	Threads   int
+	Timeout   time.Duration
 }
 
 type proxyProbeAttempt struct {
@@ -64,36 +62,38 @@ type proxyProbeAttempt struct {
 }
 
 type proxyLocalResult struct {
-	IP            string  `json:"ip"`
-	Port          int     `json:"port"`
-	Endpoint      string  `json:"endpoint"`
-	Status        string  `json:"status"`
-	SuccessRate   int     `json:"successRate"`
-	Attempts      int     `json:"attempts"`
-	TCPSuccesses  int     `json:"tcpSuccesses"`
-	TLSSuccesses  int     `json:"tlsSuccesses"`
-	HTTPSuccesses int     `json:"httpSuccesses"`
-	TCPMS         int64   `json:"tcpMs"`
-	TLSMS         int64   `json:"tlsMs"`
-	TTFBMS        int64   `json:"ttfbMs"`
-	HTTPStatus    int     `json:"httpStatus"`
-	CFConfirmed   bool    `json:"cfConfirmed"`
-	Colo          string  `json:"colo,omitempty"`
-	Loc           string  `json:"loc,omitempty"`
-	ExitIP        string  `json:"exitIp,omitempty"`
-	Score         float64 `json:"score"`
-	SpeedMbps     float64 `json:"speedMbps,omitempty"`
-	Error         string  `json:"error,omitempty"`
+	InputIndex    int    `json:"inputIndex"`
+	IP            string `json:"ip"`
+	Port          int    `json:"port"`
+	Endpoint      string `json:"endpoint"`
+	Status        string `json:"status"`
+	Stage         string `json:"stage"`
+	SuccessRate   int    `json:"successRate"`
+	Attempts      int    `json:"attempts"`
+	TCPSuccesses  int    `json:"tcpSuccesses"`
+	TLSSuccesses  int    `json:"tlsSuccesses"`
+	HTTPSuccesses int    `json:"httpSuccesses"`
+	TCPMS         int64  `json:"tcpMs"`
+	TLSMS         int64  `json:"tlsMs"`
+	TTFBMS        int64  `json:"ttfbMs"`
+	HTTPStatus    int    `json:"httpStatus"`
+	CFConfirmed   bool   `json:"cfConfirmed"`
+	Colo          string `json:"colo,omitempty"`
+	Loc           string `json:"loc,omitempty"`
+	ExitIP        string `json:"exitIp,omitempty"`
+	EntryASN      string `json:"entryAsn,omitempty"`
+	EntryOrg      string `json:"entryOrg,omitempty"`
+	ExitASN       string `json:"exitAsn,omitempty"`
+	ExitOrg       string `json:"exitOrg,omitempty"`
+	Error         string `json:"error,omitempty"`
 }
 
 type proxyLocalSummary struct {
-	Total        int `json:"total"`
-	TCPReachable int `json:"tcpReachable"`
-	RealUsable   int `json:"realUsable"`
-	Excellent    int `json:"excellent"`
-	Usable       int `json:"usable"`
-	Edge         int `json:"edge"`
-	Failed       int `json:"failed"`
+	Total          int `json:"total"`
+	Tested         int `json:"tested"`
+	TCPReachable   int `json:"tcpReachable"`
+	RequestSuccess int `json:"requestSuccess"`
+	Failed         int `json:"failed"`
 }
 
 func clampProxyInt(value, fallback, minValue, maxValue int) int {
@@ -134,44 +134,23 @@ func normalizeProxyPath(value string) string {
 }
 
 func normalizeProxyConfig(req proxyLocalTaskRequest) proxyProbeConfig {
-	mode := strings.ToLower(strings.TrimSpace(req.Mode))
-	attempts, threads, timeoutMS := 3, 30, 5000
-	switch mode {
-	case "fast":
-		attempts, threads, timeoutMS = 2, 50, 3500
-	case "precise":
-		attempts, threads, timeoutMS = 5, 20, 6500
-	default:
-		mode = "standard"
-	}
-	threads = clampProxyInt(req.Threads, threads, 1, 100)
-	timeoutMS = clampProxyInt(req.TimeoutMS, timeoutMS, 1500, 15000)
-	speedLimit := req.SpeedLimit
-	if speedLimit < 0 {
-		speedLimit = 0
-	}
-	if speedLimit == 0 && mode == "precise" {
-		speedLimit = 10
-	}
-	if speedLimit > 50 {
-		speedLimit = 50
-	}
+	threads := clampProxyInt(req.Threads, 30, 1, 100)
+	timeoutMS := clampProxyInt(req.TimeoutMS, 5000, 1500, 15000)
+	attempts := clampProxyInt(req.Attempts, 1, 1, 5)
 	sni := normalizeProxyHost(req.SNI)
 	host := normalizeProxyHost(req.Host)
 	if host == "" {
 		host = sni
 	}
 	return proxyProbeConfig{
-		SNI:        sni,
-		Host:       host,
-		Path:       normalizeProxyPath(req.Path),
-		EnableTLS:  req.EnableTLS,
-		Insecure:   req.Insecure,
-		Attempts:   attempts,
-		Threads:    threads,
-		Timeout:    time.Duration(timeoutMS) * time.Millisecond,
-		Mode:       mode,
-		SpeedLimit: speedLimit,
+		SNI:       sni,
+		Host:      host,
+		Path:      normalizeProxyPath(req.Path),
+		EnableTLS: req.EnableTLS,
+		Insecure:  req.Insecure,
+		Attempts:  attempts,
+		Threads:   threads,
+		Timeout:   time.Duration(timeoutMS) * time.Millisecond,
 	}
 }
 
@@ -210,6 +189,7 @@ func parseProxyCandidates(raw string, fallbackPort int) []proxyCandidate {
 	scanner.Buffer(make([]byte, 64*1024), 2*1024*1024)
 	seen := make(map[string]struct{})
 	result := make([]proxyCandidate, 0, 256)
+
 	add := func(candidate proxyCandidate) {
 		candidate.Host = strings.TrimSpace(strings.Trim(candidate.Host, "[]"))
 		if candidate.Host == "" || candidate.Port <= 0 || candidate.Port > 65535 {
@@ -222,6 +202,7 @@ func parseProxyCandidates(raw string, fallbackPort int) []proxyCandidate {
 		seen[key] = struct{}{}
 		result = append(result, candidate)
 	}
+
 	for scanner.Scan() {
 		line := strings.TrimSpace(strings.TrimPrefix(scanner.Text(), "\ufeff"))
 		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "//") {
@@ -231,7 +212,7 @@ func parseProxyCandidates(raw string, fallbackPort int) []proxyCandidate {
 		if strings.Contains(lower, "ip") && strings.Contains(lower, "port") && strings.Contains(line, ",") {
 			continue
 		}
-		// Explicit multi-port syntax: 1.2.3.4:443,8443,2053
+
 		if strings.Count(line, ":") == 1 && strings.Contains(line, ",") {
 			first := strings.IndexByte(line, ':')
 			host := strings.TrimSpace(line[:first])
@@ -253,11 +234,12 @@ func parseProxyCandidates(raw string, fallbackPort int) []proxyCandidate {
 				continue
 			}
 		}
+
 		if candidate, ok := parseProxyEndpoint(line, fallbackPort); ok {
 			add(candidate)
 			continue
 		}
-		// CSV: endpoint,... OR ip,port,...
+
 		if strings.Contains(line, ",") {
 			cells := strings.Split(line, ",")
 			for i := range cells {
@@ -275,6 +257,7 @@ func parseProxyCandidates(raw string, fallbackPort int) []proxyCandidate {
 				}
 			}
 		}
+
 		fields := strings.Fields(line)
 		if len(fields) >= 2 {
 			if port, err := strconv.Atoi(fields[1]); err == nil && port > 0 && port <= 65535 {
@@ -301,6 +284,7 @@ func probeProxyOnce(ctx context.Context, candidate proxyCandidate, cfg proxyProb
 	attempt := proxyProbeAttempt{}
 	dialer := net.Dialer{Timeout: cfg.Timeout}
 	address := net.JoinHostPort(candidate.Host, strconv.Itoa(candidate.Port))
+
 	tcpStart := time.Now()
 	rawConn, err := dialer.DialContext(ctx, "tcp", address)
 	if err != nil {
@@ -312,7 +296,6 @@ func probeProxyOnce(ctx context.Context, candidate proxyCandidate, cfg proxyProb
 	attempt.TCPMS = time.Since(tcpStart).Milliseconds()
 	_ = rawConn.SetDeadline(time.Now().Add(cfg.Timeout))
 
-	// SNI 留空时只做本地 TCP 可达性筛选，避免使用固定公共域名误杀 ProxyIP。
 	if cfg.EnableTLS && cfg.SNI == "" {
 		return attempt
 	}
@@ -323,7 +306,7 @@ func probeProxyOnce(ctx context.Context, candidate proxyCandidate, cfg proxyProb
 		tlsConn := tls.Client(rawConn, &tls.Config{
 			ServerName:         cfg.SNI,
 			RootCAs:            rootCAPool(),
-			InsecureSkipVerify: cfg.Insecure, // 用户高级设置显式开启时使用
+			InsecureSkipVerify: cfg.Insecure,
 			NextProtos:         []string{"http/1.1"},
 			MinVersion:         tls.VersionTLS12,
 		})
@@ -345,7 +328,10 @@ func probeProxyOnce(ctx context.Context, candidate proxyCandidate, cfg proxyProb
 	}
 
 	reqStart := time.Now()
-	request := fmt.Sprintf("GET %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: ProxyIP-Optimizer/%s\r\nAccept: */*\r\nAccept-Encoding: identity\r\nConnection: close\r\n\r\n", cfg.Path, host, appVersion)
+	request := fmt.Sprintf(
+		"GET %s HTTP/1.1\r\nHost: %s\r\nUser-Agent: CF-IP-Selector/%s\r\nAccept: */*\r\nAccept-Encoding: identity\r\nConnection: close\r\n\r\n",
+		cfg.Path, host, appVersion,
+	)
 	if _, err := io.WriteString(conn, request); err != nil {
 		attempt.Error = "HTTP write: " + err.Error()
 		return attempt
@@ -384,7 +370,7 @@ func probeProxyOnce(ctx context.Context, candidate proxyCandidate, cfg proxyProb
 
 	attempt.HTTP = true
 	server := strings.ToLower(headers["server"])
-	attempt.CF = server == "cloudflare" || strings.Contains(server, "cloudflare") || strings.TrimSpace(headers["cf-ray"]) != ""
+	attempt.CF = strings.Contains(server, "cloudflare") || strings.TrimSpace(headers["cf-ray"]) != ""
 	attempt.Strong = attempt.CF || (attempt.HTTPCode >= 200 && attempt.HTTPCode < 400)
 
 	if strings.Contains(cfg.Path, "cdn-cgi/trace") || strings.Contains(strings.ToLower(headers["content-type"]), "text/plain") {
@@ -402,6 +388,7 @@ func probeProxyOnce(ctx context.Context, candidate proxyCandidate, cfg proxyProb
 		attempt.Loc = trace["loc"]
 		attempt.ExitIP = trace["ip"]
 	}
+
 	return attempt
 }
 
@@ -412,65 +399,39 @@ func averageInt64(sum int64, count int) int64 {
 	return sum / int64(count)
 }
 
-func classifyProxyResult(result *proxyLocalResult, cfg proxyProbeConfig, strongSuccesses int) {
-	if result.TCPSuccesses == 0 {
+func classifyProxyResult(result *proxyLocalResult, cfg proxyProbeConfig, _ int) {
+	if result.Attempts <= 0 {
+		result.Attempts = 1
+	}
+
+	switch {
+	case result.HTTPSuccesses > 0:
+		result.Stage = "http"
+	case result.TLSSuccesses > 0:
+		result.Stage = "tls"
+	case result.TCPSuccesses > 0:
+		result.Stage = "tcp"
+	default:
+		result.Stage = "failed"
+	}
+
+	successes := result.HTTPSuccesses
+	if (cfg.EnableTLS && cfg.SNI == "") || (!cfg.EnableTLS && cfg.Host == "") {
+		successes = result.TCPSuccesses
+	}
+	result.SuccessRate = int(float64(successes) / float64(result.Attempts) * 100)
+
+	if result.Stage == "failed" {
 		result.Status = "failed"
-		result.Score = 0
 		if result.Error == "" {
 			result.Error = "TCP 不可达"
 		}
 		return
 	}
-	if cfg.SNI == "" && cfg.EnableTLS {
-		result.Status = "edge"
-		result.SuccessRate = int(float64(result.TCPSuccesses) / float64(result.Attempts) * 100)
-		result.Score = 30 + float64(result.SuccessRate)*0.35 - float64(result.TCPMS)/25
-		if result.Score < 1 {
-			result.Score = 1
-		}
-		result.Error = "未填写 SNI，仅完成 TCP 本地筛选"
-		return
+	result.Status = "success"
+	if cfg.EnableTLS && cfg.SNI == "" && result.Error == "" {
+		result.Error = "未填写 SNI，仅完成 TCP 测试"
 	}
-
-	result.SuccessRate = int(float64(result.HTTPSuccesses) / float64(result.Attempts) * 100)
-	if result.HTTPSuccesses == result.Attempts && strongSuccesses > 0 && result.TTFBMS > 0 && result.TTFBMS <= 650 {
-		result.Status = "excellent"
-	} else if result.HTTPSuccesses > 0 && result.SuccessRate >= 50 {
-		result.Status = "usable"
-	} else {
-		// TCP/TLS 已经能够到达但 HTTP 探针未满足时保留为边缘候选，不再一票误杀。
-		result.Status = "edge"
-	}
-
-	score := float64(result.SuccessRate) * 0.62
-	tcpRate := float64(result.TCPSuccesses) / float64(result.Attempts) * 100
-	score += tcpRate * 0.18
-	if result.CFConfirmed {
-		score += 8
-	}
-	if result.TCPMS > 0 {
-		score += 8 - minFloat(8, float64(result.TCPMS)/40)
-	}
-	if result.TTFBMS > 0 {
-		score += 8 - minFloat(8, float64(result.TTFBMS)/120)
-	}
-	if result.Status == "edge" {
-		score = minFloat(score, 59)
-	}
-	if score < 1 {
-		score = 1
-	}
-	if score > 100 {
-		score = 100
-	}
-	result.Score = float64(int(score*10)) / 10
-}
-
-func minFloat(a, b float64) float64 {
-	if a < b {
-		return a
-	}
-	return b
 }
 
 func probeProxyCandidate(ctx context.Context, candidate proxyCandidate, cfg proxyProbeConfig) proxyLocalResult {
@@ -483,6 +444,7 @@ func probeProxyCandidate(ctx context.Context, candidate proxyCandidate, cfg prox
 	var tcpSum, tlsSum, ttfbSum int64
 	strongSuccesses := 0
 	lastError := ""
+
 	for i := 0; i < cfg.Attempts; i++ {
 		if ctx.Err() != nil {
 			lastError = "任务已终止"
@@ -521,101 +483,33 @@ func probeProxyCandidate(ctx context.Context, candidate proxyCandidate, cfg prox
 			lastError = attempt.Error
 		}
 	}
+
 	result.TCPMS = averageInt64(tcpSum, result.TCPSuccesses)
 	result.TLSMS = averageInt64(tlsSum, result.TLSSuccesses)
 	result.TTFBMS = averageInt64(ttfbSum, result.HTTPSuccesses)
 	result.Error = lastError
+	result.EntryASN, result.EntryOrg = lookupASN(candidate.Host)
+	if result.ExitIP != "" {
+		result.ExitASN, result.ExitOrg = lookupASN(result.ExitIP)
+	}
 	classifyProxyResult(&result, cfg, strongSuccesses)
 	return result
 }
 
 func proxySummary(results []proxyLocalResult) proxyLocalSummary {
-	summary := proxyLocalSummary{Total: len(results)}
+	summary := proxyLocalSummary{Total: len(results), Tested: len(results)}
 	for _, result := range results {
 		if result.TCPSuccesses > 0 {
 			summary.TCPReachable++
 		}
-		switch result.Status {
-		case "excellent":
-			summary.Excellent++
-			summary.RealUsable++
-		case "usable":
-			summary.Usable++
-			summary.RealUsable++
-		case "edge":
-			summary.Edge++
-		default:
+		if result.HTTPSuccesses > 0 {
+			summary.RequestSuccess++
+		}
+		if result.Status == "failed" {
 			summary.Failed++
 		}
 	}
 	return summary
-}
-
-func proxyResultLess(a, b proxyLocalResult) bool {
-	rank := map[string]int{"excellent": 0, "usable": 1, "edge": 2, "failed": 3}
-	if rank[a.Status] != rank[b.Status] {
-		return rank[a.Status] < rank[b.Status]
-	}
-	if a.Score != b.Score {
-		return a.Score > b.Score
-	}
-	if a.SpeedMbps != b.SpeedMbps {
-		return a.SpeedMbps > b.SpeedMbps
-	}
-	if a.TTFBMS != b.TTFBMS {
-		if a.TTFBMS == 0 {
-			return false
-		}
-		if b.TTFBMS == 0 {
-			return true
-		}
-		return a.TTFBMS < b.TTFBMS
-	}
-	return a.TCPMS < b.TCPMS
-}
-
-func runProxyReferenceSpeed(ctx context.Context, session *appSession, results []proxyLocalResult, cfg proxyProbeConfig) []proxyLocalResult {
-	if cfg.Mode != "precise" || cfg.SpeedLimit <= 0 {
-		return results
-	}
-	eligible := make([]int, 0, len(results))
-	for i := range results {
-		if results[i].Status == "excellent" || results[i].Status == "usable" {
-			eligible = append(eligible, i)
-		}
-	}
-	sort.Slice(eligible, func(i, j int) bool { return proxyResultLess(results[eligible[i]], results[eligible[j]]) })
-	if len(eligible) > cfg.SpeedLimit {
-		eligible = eligible[:cfg.SpeedLimit]
-	}
-	if len(eligible) == 0 {
-		return results
-	}
-
-	testURL := speedTestURL
-	if isAutoSpeedURL(testURL) {
-		resolved, _, err := resolveStartupSpeedTestURL(ctx, speedTestURL)
-		if err == nil && strings.TrimSpace(resolved) != "" {
-			testURL = resolved
-		}
-	}
-	session.sendWSMessage("proxy_progress", map[string]interface{}{"phase": "speed", "current": 0, "total": len(eligible), "text": "参考测速中（测速失败不会淘汰节点）"})
-	for pos, idx := range eligible {
-		if ctx.Err() != nil {
-			break
-		}
-		speedKB, speedErr := runNSBDownloadSpeed(ctx, results[idx].IP, results[idx].Port, cfg.EnableTLS, testURL)
-		if speedErr == "" && speedKB > 0 {
-			results[idx].SpeedMbps = float64(int((speedKB*8/1024)*10)) / 10
-			results[idx].Score += minFloat(8, results[idx].SpeedMbps/80)
-			if results[idx].Score > 100 {
-				results[idx].Score = 100
-			}
-		}
-		session.sendWSMessage("proxy_result", results[idx])
-		session.sendWSMessage("proxy_progress", map[string]interface{}{"phase": "speed", "current": pos + 1, "total": len(eligible), "text": "参考测速中（测速失败不会淘汰节点）"})
-	}
-	return results
 }
 
 func runProxyLocalTask(ctx context.Context, session *appSession, req proxyLocalTaskRequest) {
@@ -625,28 +519,38 @@ func runProxyLocalTask(ctx context.Context, session *appSession, req proxyLocalT
 		session.sendWSMessage("error", "没有解析到有效的 IP:端口")
 		return
 	}
+
 	if cfg.EnableTLS && cfg.SNI == "" {
-		session.sendWSMessage("log", "SNI 为空：本轮只做 TCP 本地筛选，不会使用 speed.cloudflare.com 代替真实 SNI。")
+		session.sendWSMessage("log", "SNI 为空：本轮只做 TCP 本地测试，不使用固定公共域名代替真实 SNI。")
 	}
+
 	session.sendWSMessage("proxy_started", map[string]interface{}{
-		"total": len(candidates), "attempts": cfg.Attempts, "threads": cfg.Threads,
-		"mode": cfg.Mode, "sniConfigured": cfg.SNI != "",
+		"total":         len(candidates),
+		"attempts":      cfg.Attempts,
+		"threads":       cfg.Threads,
+		"sniConfigured": cfg.SNI != "",
 	})
-	phaseText := "真实 SNI / 本地链路验证中"
-	if cfg.SNI == "" && cfg.EnableTLS {
-		phaseText = "TCP 本地可达性筛选中"
+
+	phaseText := "真实 SNI / 本地链路测试中"
+	if cfg.EnableTLS && cfg.SNI == "" {
+		phaseText = "TCP 本地测试中"
 	}
-	session.sendWSMessage("proxy_progress", map[string]interface{}{"phase": "probe", "current": 0, "total": len(candidates), "text": phaseText})
+	session.sendWSMessage("proxy_progress", map[string]interface{}{
+		"phase": "probe", "current": 0, "total": len(candidates), "text": phaseText,
+	})
 
 	results := make([]proxyLocalResult, len(candidates))
 	jobs := make(chan int)
 	var wg sync.WaitGroup
 	var progressMu sync.Mutex
 	processed := 0
+	lastProgress := time.Time{}
+
 	workerCount := cfg.Threads
 	if workerCount > len(candidates) {
 		workerCount = len(candidates)
 	}
+
 	for worker := 0; worker < workerCount; worker++ {
 		wg.Add(1)
 		go func() {
@@ -656,16 +560,28 @@ func runProxyLocalTask(ctx context.Context, session *appSession, req proxyLocalT
 					return
 				}
 				result := probeProxyCandidate(ctx, candidates[idx], cfg)
+				result.InputIndex = idx
 				results[idx] = result
 				session.sendWSMessage("proxy_result", result)
+
 				progressMu.Lock()
 				processed++
 				current := processed
+				now := time.Now()
+				emitProgress := current == len(candidates) || now.Sub(lastProgress) >= 150*time.Millisecond
+				if emitProgress {
+					lastProgress = now
+				}
 				progressMu.Unlock()
-				session.sendWSMessage("proxy_progress", map[string]interface{}{"phase": "probe", "current": current, "total": len(candidates), "text": phaseText})
+				if emitProgress {
+					session.sendWSMessage("proxy_progress", map[string]interface{}{
+						"phase": "probe", "current": current, "total": len(candidates), "text": phaseText,
+					})
+				}
 			}
 		}()
 	}
+
 	for idx := range candidates {
 		select {
 		case <-ctx.Done():
@@ -677,16 +593,24 @@ func runProxyLocalTask(ctx context.Context, session *appSession, req proxyLocalT
 					partial = append(partial, result)
 				}
 			}
-			sort.Slice(partial, func(i, j int) bool { return proxyResultLess(partial[i], partial[j]) })
-			session.sendWSMessage("proxy_complete", map[string]interface{}{"results": partial, "summary": proxySummary(partial), "partial": true})
+			session.sendWSMessage("proxy_complete", map[string]interface{}{
+				"results": partial, "summary": proxySummary(partial), "partial": true,
+			})
 			return
 		case jobs <- idx:
 		}
 	}
+
 	close(jobs)
 	wg.Wait()
 
-	results = runProxyReferenceSpeed(ctx, session, results, cfg)
-	sort.Slice(results, func(i, j int) bool { return proxyResultLess(results[i], results[j]) })
-	session.sendWSMessage("proxy_complete", map[string]interface{}{"results": results, "summary": proxySummary(results), "partial": ctx.Err() != nil})
+	completed := make([]proxyLocalResult, 0, len(results))
+	for _, result := range results {
+		if result.Endpoint != "" {
+			completed = append(completed, result)
+		}
+	}
+	session.sendWSMessage("proxy_complete", map[string]interface{}{
+		"results": completed, "summary": proxySummary(completed), "partial": ctx.Err() != nil,
+	})
 }
