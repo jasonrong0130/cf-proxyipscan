@@ -6,6 +6,7 @@ on:
       - feature/proxyip-local-v1
     paths:
       - scripts/apply_proxyip_local_v1.py
+      - scripts/patch_proxyip_local_v1_lean.py
       - .github/workflows/proxyip-local-v1-apply.yml
 
 permissions:
@@ -27,12 +28,15 @@ jobs:
           go-version: "1.25.4"
           cache-dependency-path: combined_refactor/go.sum
 
-      - name: Apply migration
+      - name: Apply V1 source migration
         run: python3 scripts/apply_proxyip_local_v1.py
+
+      - name: Apply lean local-product patch
+        run: python3 scripts/patch_proxyip_local_v1_lean.py
 
       - name: Format Go
         run: |
-          gofmt -w combined_refactor/proxy_local.go combined_refactor/proxy_local_test.go combined_refactor/server.go
+          gofmt -w combined_refactor/proxy_local.go combined_refactor/proxy_local_test.go combined_refactor/proxy_local_integration_test.go combined_refactor/server.go combined_refactor/main.go
 
       - name: Privacy guard
         run: |
@@ -60,10 +64,10 @@ jobs:
           # The migration also rebrands the release workflow. GitHub Actions cannot push workflow-file changes
           # with its default token, so keep that file for a separate connector-side update.
           git checkout -- .github/workflows/build.yml
-          git add README.md combined_refactor/proxy_local.go combined_refactor/proxy_local_test.go combined_refactor/index.html combined_refactor/server.go combined_refactor/*.go
+          git add README.md combined_refactor/proxy_local.go combined_refactor/proxy_local_test.go combined_refactor/proxy_local_integration_test.go combined_refactor/index.html combined_refactor/server.go combined_refactor/main.go combined_refactor/cli.go combined_refactor/geo_warning.go combined_refactor/version.go
           if git diff --cached --quiet; then
             echo 'No generated changes to commit.'
             exit 0
           fi
-          git commit -m 'feat: add ProxyIP local optimizer V1'
+          git commit -m 'feat: finalize lean ProxyIP local optimizer V1'
           git push origin HEAD:feature/proxyip-local-v1
