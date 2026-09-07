@@ -69,46 +69,13 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		}
 	})
 
-	cfCountry := ""
-	cfCountryOK := false
-	if !skipGeoCheck {
-		ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
-		cfCountry, cfCountryOK = detectCloudflareTraceCountry(ctx)
-		cancel()
-	}
-	defaultSpeedURL, speedISP, speedISPErr := resolveStartupSpeedTestURL(r.Context(), speedTestURL)
-	if speedISPErr != nil {
-		recordDebugError("speed_isp_check", speedISPErr.Error())
-	}
-	if speedISPErr == nil {
-		recordDebugByLevel("all", "speed_isp_check", fmt.Sprintf("asn=%d org=%s mobile=%v selected=%s", speedISP.ASN, speedISP.ASOrganization, isChinaMobileISP(speedISP), currentAutoSpeedURLDefault()))
-	}
 	session.sendWSMessage("init_config", map[string]interface{}{
-		"speedTestURL":     speedTestURL,
-		"speedTestDefault": defaultSpeedURL,
-		"speedTestWorkers": speedTestWorkers,
-		"debug":            debugMode,
-		"version":          appVersion,
-		"releaseURL":       releaseLatestURL,
-		"cfCountry":        cfCountry,
-		"proxyWarning":     !skipGeoCheck && (!cfCountryOK || shouldWarnProxyCountry(cfCountry)),
-		"geoCheckOK":       cfCountryOK,
-		"skipGeoCheck":     skipGeoCheck,
+		"version": appVersion,
+		"mode":    "proxy-local",
 	})
 	if backgroundSession := currentBackgroundTaskSession(); backgroundSession != nil {
 		session.sendWSMessage("background_task_found", backgroundSession.backgroundSummary())
 	}
-	safeGo("version-check", session, func() {
-		ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
-		defer cancel()
-		info, err := getLatestRelease(ctx)
-		if err != nil {
-			recordDebugError("version_check", err.Error())
-			session.sendWSMessage("version_info", map[string]interface{}{"version": appVersion, "releaseURL": releaseLatestURL, "error": err.Error()})
-			return
-		}
-		session.sendWSMessage("version_info", map[string]interface{}{"version": appVersion, "latest": info.TagName, "releaseURL": releaseLatestURL, "hasUpdate": versionIsOlder(appVersion, info.TagName)})
-	})
 
 	safeHandler := func(name string, fn func(json.RawMessage), data json.RawMessage) {
 		defer func() {

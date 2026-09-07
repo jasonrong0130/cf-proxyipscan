@@ -180,18 +180,6 @@ func main() {
 	}
 	speedTestWorkers = cliCfg.speedTest
 	configureHTTPClients()
-	startupSpeedTestURL := speedTestURL
-	if !cliCfg.enabled {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		resolvedSpeedURL, speedISP, err := resolveStartupSpeedTestURL(ctx, speedTestURL)
-		cancel()
-		if err != nil {
-			recordDebugError("speed_isp_check", err.Error())
-		} else {
-			startupSpeedTestURL = resolvedSpeedURL
-			recordDebugByLevel("all", "speed_isp_check", fmt.Sprintf("startup asn=%d org=%s mobile=%v selected=%s", speedISP.ASN, speedISP.ASOrganization, isChinaMobileISP(speedISP), currentAutoSpeedURLDefault()))
-		}
-	}
 	if webSessionMinutes <= 0 {
 		webSessionMinutes = 720
 	}
@@ -205,8 +193,8 @@ func main() {
 			fmt.Printf("[config] 已生成配置文件模板: %s\n", cfgPath)
 		}
 	}
-	initLocations()
 	if cliCfg.enabled {
+		initLocations()
 		if err := runCLI(cliCfg); err != nil {
 			recordProgramDebugError("cli_run", err.Error())
 			fmt.Printf("CLI 执行失败: %v\n", err)
@@ -250,7 +238,6 @@ func main() {
 		displayHost = strings.TrimSpace(listenHost)
 	}
 	fmt.Printf("ProxyIP Optimizer 版本: %s\n", appVersion)
-	go checkAndPrintUpdate("")
 	displayURL := fmt.Sprintf("http://%s:%d", displayHost, listenPort)
 	if webUser != "" && webPassword != "" {
 		fmt.Printf("Web 认证已启用，用户名: %s\n", webUser)
@@ -258,12 +245,7 @@ func main() {
 	} else if webUser != "" || webPassword != "" {
 		fmt.Println("警告： 需要同时设置 -user 和 -password 才会启用认证")
 	}
-	fmt.Printf("当前测速网址: %s\n", startupSpeedTestURL)
-	if skipGeoCheck {
-		fmt.Println("地区验证: 已跳过")
-	} else {
-		fmt.Println("地区验证: 启用")
-	}
+	fmt.Println("测速策略: 精准模式按需启用，不在启动时联网探测")
 	if strings.TrimSpace(customDNSServer) == "" {
 		fmt.Println("当前 DNS: 系统 DNS")
 	} else {
