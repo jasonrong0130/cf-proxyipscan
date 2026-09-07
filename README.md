@@ -1,29 +1,35 @@
-# ProxyIP Optimizer
+# CF优选IP筛选器
 
-一个轻量的 **本地 ProxyIP 优选工具**，核心使用 Go，本地 Web UI 使用原生 HTML / CSS / JavaScript，不依赖 Electron。
+一个轻量的 **本地 ProxyIP / Cloudflare 候选 IP 测试与筛选工具**。核心使用 Go，本地 Web UI 使用原生 HTML / CSS / JavaScript，不依赖 Electron。
 
-## 当前目标
+## 当前定位
 
-VPS 端负责大规模海选 ProxyIP；本工具负责在你的 Windows / macOS / Linux **当前真实网络**下进行最终优选。
+VPS 端可以负责大规模海选；本工具负责在 Windows / macOS / Linux **当前真实网络**下进行本地测试、筛选、排序、测速和导出。
 
-与传统 CF 优选判定不同，本项目的 ProxyIP 模式遵循：
+本项目不再替用户把不同地区节点简单划分为“优质 / 可用 / 边缘”。香港、美国、日本等节点的物理距离不同，延迟数值本身只作为事实数据展示，是否适合使用由用户结合地区、线路、ASN、速度等自行判断。
 
-- 不使用固定 `speed.cloudflare.com` 作为“是否可用”的唯一标准。
-- SNI 默认留空；建议填入你实际使用的 SNI。
+当前 ProxyIP 本地测试遵循：
+
+- 默认每个 IP 测试 1 次；高级设置可手动改为 1–5 次。
+- SNI 默认留空；建议填入实际使用的 SNI。
 - Host 默认跟随 SNI，仅在高级设置中允许单独覆盖。
-- TCP / TLS / HTTP 多次复检，单次失败不会直接淘汰。
-- HTTP 4xx / 5xx 只要真实 TLS + HTTP 链路建立成功，仍作为链路证据记录，不直接判死。
-- `/cdn-cgi/trace` 没有 `colo` 不再一票否决。
-- 失败节点分为“边缘”和“失败”，尽量减少实际可用节点被误杀。
-- 精准模式的公共测速仅用于参考；测速失败不会改变真实可用判定。
+- SNI 留空时只做 TCP 本地测试，不使用固定公共域名代替。
+- 填写 SNI 后记录 TCP、TLS、TTFB、HTTP 状态、Cloudflare 证据、机房和出口 IP。
+- HTTP 4xx / 5xx 只记录真实响应，不因为状态码直接把候选删除。
+- `/cdn-cgi/trace` 没有 `colo` 只显示未知，不作为一票淘汰条件。
+- 入口 / 出口 ASN 与组织信息使用本地 GeoLite2 ASN 数据库查询。
+- 结果页支持分页、搜索、状态 / 端口 / 机房 / ASN / 延迟 / 速度筛选和表头排序。
+- 支持当前筛选、当前页、已勾选、全部结果四种操作范围。
+- 支持一键测速、继续测速、一键复制、TXT / CSV 导出。
+- 测速只写入速度结果，不改变节点测试状态。
 
 ## 使用流程
 
-1. 从 VPS ProxyIP Scanner 导出候选 `IP:端口`。
-2. 在本机运行 ProxyIP Optimizer。
-3. 导入 TXT / CSV，填写实际 SNI。
-4. 选择 极速 / 标准 / 精准。
-5. 根据成功率、TCP、TLS、TTFB、CF 确认、参考速度和评分挑选 Top 节点。
+1. 导入候选 `IP:端口` 的 TXT / CSV。
+2. 需要真实 TLS / HTTP 链路验证时填写实际 SNI；只想看 TCP 时可留空。
+3. 点击“开始测试”。
+4. 在结果表中按机房、ASN、TCP、TTFB、速度等自行筛选与排序。
+5. 对当前筛选 / 当前页 / 已勾选结果执行一键测速、复制或导出。
 
 SNI、Host 等个人配置只保存在浏览器 `localStorage`，源码默认值不包含任何个人域名。
 
@@ -33,7 +39,7 @@ SNI、Host 等个人配置只保存在浏览器 `localStorage`，源码默认值
 
 ```bash
 cd combined_refactor
-go build -trimpath -ldflags "-s -w" -o proxyip-optimizer .
+go build -trimpath -ldflags "-s -w" -o cf-ip-selector .
 ```
 
 Windows：
@@ -42,7 +48,7 @@ Windows：
 cd combined_refactor
 set GOOS=windows
 set GOARCH=amd64
-go build -trimpath -ldflags "-s -w" -o proxyip-optimizer.exe .
+go build -trimpath -ldflags "-s -w" -o cf-ip-selector.exe .
 ```
 
 默认本地 Web 地址为 `http://127.0.0.1:13335`，程序默认只监听本机回环地址，不会直接暴露到局域网或公网。
