@@ -1,4 +1,4 @@
-name: ProxyIP Optimizer CI
+name: CF优选IP筛选器 CI
 
 on:
   push:
@@ -27,8 +27,8 @@ jobs:
 
       - name: Verify product identity and safe defaults
         run: |
-          grep -q 'ProxyIP Optimizer' README.md
-          grep -q 'ProxyIP Optimizer' combined_refactor/index.html
+          grep -q 'CF优选IP筛选器' README.md
+          grep -q 'CF优选IP筛选器' combined_refactor/index.html
           grep -q 'placeholder="例如 example.com' combined_refactor/index.html
           if grep -q 'value="example.com"' combined_refactor/index.html; then
             echo 'SNI example must be placeholder-only, not a persisted default.'
@@ -45,12 +45,12 @@ jobs:
           GOOS: windows
           GOARCH: amd64
           CGO_ENABLED: "0"
-        run: go build -trimpath -ldflags '-s -w -X main.appVersion=ci' -o ../proxyip-optimizer-windows-amd64-test.exe .
+        run: go build -trimpath -ldflags '-s -w -X main.appVersion=ci' -o ../cf-ip-selector-windows-amd64-test.exe .
 
       - name: Upload Windows test build
         uses: actions/upload-artifact@v4
         with:
-          name: proxyip-optimizer-windows-amd64-test
-          path: proxyip-optimizer-windows-amd64-test.exe
+          name: cf-ip-selector-windows-amd64-test
+          path: cf-ip-selector-windows-amd64-test.exe
           retention-days: 7
           if-no-files-found: error

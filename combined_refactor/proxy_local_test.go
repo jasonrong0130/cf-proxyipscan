@@ -14,29 +14,36 @@ func TestParseProxyCandidates(t *testing.T) {
 }
 
 func TestNormalizeProxyConfigNoPersonalDefault(t *testing.T) {
-	cfg := normalizeProxyConfig(proxyLocalTaskRequest{EnableTLS: true, Mode: "standard"})
+	cfg := normalizeProxyConfig(proxyLocalTaskRequest{EnableTLS: true})
 	if cfg.SNI != "" || cfg.Host != "" {
 		t.Fatalf("SNI/Host must remain blank by default: %#v", cfg)
 	}
-	if cfg.Path != "/cdn-cgi/trace" || cfg.Attempts != 3 {
+	if cfg.Path != "/cdn-cgi/trace" || cfg.Attempts != 1 {
 		t.Fatalf("unexpected defaults: %#v", cfg)
 	}
 }
 
-func TestClassifyKeepsBorderlineCandidate(t *testing.T) {
-	cfg := proxyProbeConfig{SNI: "example.com", EnableTLS: true}
-	result := proxyLocalResult{Attempts: 3, TCPSuccesses: 3, TLSSuccesses: 1, HTTPSuccesses: 0, TCPMS: 35}
-	classifyProxyResult(&result, cfg, 0)
-	if result.Status != "edge" {
-		t.Fatalf("TLS/TCP reachable candidate should be kept as edge, got %s", result.Status)
+func TestNormalizeProxyConfigAllowsManualAttempts(t *testing.T) {
+	cfg := normalizeProxyConfig(proxyLocalTaskRequest{Attempts: 3, Threads: 60, TimeoutMS: 7000})
+	if cfg.Attempts != 3 || cfg.Threads != 60 || cfg.Timeout != 7000000000 {
+		t.Fatalf("manual test config not preserved: %#v", cfg)
 	}
 }
 
-func TestClassifyHTTPResponseAsUsable(t *testing.T) {
-	cfg := proxyProbeConfig{SNI: "example.com", EnableTLS: true}
-	result := proxyLocalResult{Attempts: 3, TCPSuccesses: 3, TLSSuccesses: 2, HTTPSuccesses: 2, TCPMS: 35, TTFBMS: 110}
+func TestClassifyIsMetricOnly(t *testing.T) {
+	cfg := proxyProbeConfig{SNI: "example.com", Host: "example.com", EnableTLS: true}
+	result := proxyLocalResult{Attempts: 1, TCPSuccesses: 1, TLSSuccesses: 1, HTTPSuccesses: 0, TCPMS: 35}
+	classifyProxyResult(&result, cfg, 0)
+	if result.Status != "success" || result.Stage != "tls" {
+		t.Fatalf("reachable candidate should report factual stage, got %#v", result)
+	}
+}
+
+func TestClassifyHTTPResponse(t *testing.T) {
+	cfg := proxyProbeConfig{SNI: "example.com", Host: "example.com", EnableTLS: true}
+	result := proxyLocalResult{Attempts: 1, TCPSuccesses: 1, TLSSuccesses: 1, HTTPSuccesses: 1, TTFBMS: 110}
 	classifyProxyResult(&result, cfg, 1)
-	if result.Status != "usable" {
-		t.Fatalf("expected usable, got %s", result.Status)
+	if result.Status != "success" || result.Stage != "http" || result.SuccessRate != 100 {
+		t.Fatalf("expected factual HTTP result, got %#v", result)
 	}
 }
