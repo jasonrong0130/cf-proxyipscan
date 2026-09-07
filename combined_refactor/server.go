@@ -69,46 +69,13 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		}
 	})
 
-	cfCountry := ""
-	cfCountryOK := false
-	if !skipGeoCheck {
-		ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
-		cfCountry, cfCountryOK = detectCloudflareTraceCountry(ctx)
-		cancel()
-	}
-	defaultSpeedURL, speedISP, speedISPErr := resolveStartupSpeedTestURL(r.Context(), speedTestURL)
-	if speedISPErr != nil {
-		recordDebugError("speed_isp_check", speedISPErr.Error())
-	}
-	if speedISPErr == nil {
-		recordDebugByLevel("all", "speed_isp_check", fmt.Sprintf("asn=%d org=%s mobile=%v selected=%s", speedISP.ASN, speedISP.ASOrganization, isChinaMobileISP(speedISP), currentAutoSpeedURLDefault()))
-	}
 	session.sendWSMessage("init_config", map[string]interface{}{
-		"speedTestURL":     speedTestURL,
-		"speedTestDefault": defaultSpeedURL,
-		"speedTestWorkers": speedTestWorkers,
-		"debug":            debugMode,
-		"version":          appVersion,
-		"releaseURL":       releaseLatestURL,
-		"cfCountry":        cfCountry,
-		"proxyWarning":     !skipGeoCheck && (!cfCountryOK || shouldWarnProxyCountry(cfCountry)),
-		"geoCheckOK":       cfCountryOK,
-		"skipGeoCheck":     skipGeoCheck,
+		"version": appVersion,
+		"mode":    "proxy-local",
 	})
 	if backgroundSession := currentBackgroundTaskSession(); backgroundSession != nil {
 		session.sendWSMessage("background_task_found", backgroundSession.backgroundSummary())
 	}
-	safeGo("version-check", session, func() {
-		ctx, cancel := context.WithTimeout(r.Context(), 7*time.Second)
-		defer cancel()
-		info, err := getLatestRelease(ctx)
-		if err != nil {
-			recordDebugError("version_check", err.Error())
-			session.sendWSMessage("version_info", map[string]interface{}{"version": appVersion, "releaseURL": releaseLatestURL, "error": err.Error()})
-			return
-		}
-		session.sendWSMessage("version_info", map[string]interface{}{"version": appVersion, "latest": info.TagName, "releaseURL": releaseLatestURL, "hasUpdate": versionIsOlder(appVersion, info.TagName)})
-	})
 
 	safeHandler := func(name string, fn func(json.RawMessage), data json.RawMessage) {
 		defer func() {
@@ -227,6 +194,23 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			}
 			session.startTaskNamed("官方批量测速", "official", map[string]interface{}{"port": params.Port, "url": params.URL, "speedLimit": params.SpeedLimit, "speedMin": params.SpeedMin, "skipTested": params.SkipTested}, func(ctx context.Context, session *appSession) {
 				runOfficialSpeedBatch(ctx, session, params.Port, params.URL, params.SpeedLimit, params.SpeedMin, params.Results, params.SkipTested)
+			})
+		},
+		"start_proxy_task": func(data json.RawMessage) {
+			var params proxyLocalTaskRequest
+			if err := json.Unmarshal(data, &params); err != nil {
+				session.sendWSMessage("error", "start_proxy_task 参数解析失败")
+				return
+			}
+			if strings.TrimSpace(params.FileContent) == "" {
+				session.sendWSMessage("error", "请先导入候选 IP")
+				return
+			}
+			session.startTaskNamed("ProxyIP 本地优选", "proxy", map[string]interface{}{
+				"fileName": params.FileName, "sniConfigured": strings.TrimSpace(params.SNI) != "",
+				"mode": params.Mode, "threads": params.Threads,
+			}, func(ctx context.Context, session *appSession) {
+				runProxyLocalTask(ctx, session, params)
 			})
 		},
 		"start_nsb_task": func(data json.RawMessage) {

@@ -25,12 +25,12 @@ type latestReleaseInfo struct {
 }
 
 func getLatestRelease(ctx context.Context) (latestReleaseInfo, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/repos/PoemMisty/CFData-WEB/releases/latest", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "https://api.github.com/repos/jasonrong0130/cf-proxyipscan/releases/latest", nil)
 	if err != nil {
 		return latestReleaseInfo{}, err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
-	req.Header.Set("User-Agent", "CFData-WEB/"+appVersion)
+	req.Header.Set("User-Agent", "ProxyIP Optimizer/"+appVersion)
 	ctx, cancel := context.WithTimeout(ctx, 6*time.Second)
 	defer cancel()
 	resp, err := upstreamHTTPClient.Do(req.WithContext(ctx))
@@ -147,7 +147,7 @@ func main() {
 	cliCfg := registerCLIFlags()
 
 	flag.IntVar(&listenPort, "port", 13335, "服务监听端口")
-	flag.StringVar(&listenHost, "host", "", "服务监听地址；留空监听全部地址，Android APK 建议使用 127.0.0.1")
+	flag.StringVar(&listenHost, "host", "127.0.0.1", "服务监听地址；默认仅监听本机 127.0.0.1，需要局域网访问时再显式修改")
 	flag.StringVar(&speedTestURL, "url", autoSpeedURLValue, "测速下载地址；auto 表示由后端自动选择内置测速源")
 	flag.BoolVar(&skipGeoCheck, "skipgeo", false, "跳过地区/代理环境验证")
 	flag.StringVar(&customDNSServer, "dns", defaultDNSServers, "自定义 DNS 服务器，例如 223.5.5.5、8.8.8.8:53 或逗号分隔多个；默认系统 DNS 优先、失败回退到该内置 DNS，显式提供时强制使用指定 DNS")
@@ -180,18 +180,6 @@ func main() {
 	}
 	speedTestWorkers = cliCfg.speedTest
 	configureHTTPClients()
-	startupSpeedTestURL := speedTestURL
-	if !cliCfg.enabled {
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		resolvedSpeedURL, speedISP, err := resolveStartupSpeedTestURL(ctx, speedTestURL)
-		cancel()
-		if err != nil {
-			recordDebugError("speed_isp_check", err.Error())
-		} else {
-			startupSpeedTestURL = resolvedSpeedURL
-			recordDebugByLevel("all", "speed_isp_check", fmt.Sprintf("startup asn=%d org=%s mobile=%v selected=%s", speedISP.ASN, speedISP.ASOrganization, isChinaMobileISP(speedISP), currentAutoSpeedURLDefault()))
-		}
-	}
 	if webSessionMinutes <= 0 {
 		webSessionMinutes = 720
 	}
@@ -205,8 +193,8 @@ func main() {
 			fmt.Printf("[config] 已生成配置文件模板: %s\n", cfgPath)
 		}
 	}
-	initLocations()
 	if cliCfg.enabled {
+		initLocations()
 		if err := runCLI(cliCfg); err != nil {
 			recordProgramDebugError("cli_run", err.Error())
 			fmt.Printf("CLI 执行失败: %v\n", err)
@@ -249,8 +237,7 @@ func main() {
 		addr = fmt.Sprintf("%s:%d", strings.TrimSpace(listenHost), listenPort)
 		displayHost = strings.TrimSpace(listenHost)
 	}
-	fmt.Printf("CFData-WEB 版本: %s\n", appVersion)
-	go checkAndPrintUpdate("")
+	fmt.Printf("ProxyIP Optimizer 版本: %s\n", appVersion)
 	displayURL := fmt.Sprintf("http://%s:%d", displayHost, listenPort)
 	if webUser != "" && webPassword != "" {
 		fmt.Printf("Web 认证已启用，用户名: %s\n", webUser)
@@ -258,12 +245,7 @@ func main() {
 	} else if webUser != "" || webPassword != "" {
 		fmt.Println("警告： 需要同时设置 -user 和 -password 才会启用认证")
 	}
-	fmt.Printf("当前测速网址: %s\n", startupSpeedTestURL)
-	if skipGeoCheck {
-		fmt.Println("地区验证: 已跳过")
-	} else {
-		fmt.Println("地区验证: 启用")
-	}
+	fmt.Println("测速策略: 精准模式按需启用，不在启动时联网探测")
 	if strings.TrimSpace(customDNSServer) == "" {
 		fmt.Println("当前 DNS: 系统 DNS")
 	} else {

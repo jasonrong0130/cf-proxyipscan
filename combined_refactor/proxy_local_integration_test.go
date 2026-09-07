@@ -1,0 +1,103 @@
+package main
+
+import (
+	"context"
+	"net"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestParseProxyCandidatesDeduplicatesAndKeepsPorts(t *testing.T) {
+	input := strings.Join([]string{
+		"ProxyIP,Port",
+		"1.2.3.4:443",
+		"1.2.3.4:443",
+		"5.6.7.8:443,2053,8443",
+		"9.9.9.9 2083",
+	}, "\n")
+	got := parseProxyCandidates(input, 443)
+	if len(got) != 5 {
+		t.Fatalf("expected 5 unique candidates, got %d: %#v", len(got), got)
+	}
+	if got[1].Host != "5.6.7.8" || got[1].Port != 443 || got[3].Port != 8443 {
+		t.Fatalf("multi-port parsing changed: %#v", got)
+	}
+}
+
+func TestBlankSNIIsTCPOnlyAndRetained(t *testing.T) {
+	cfg := normalizeProxyConfig(proxyLocalTaskRequest{EnableTLS: true, Mode: "standard"})
+	r := proxyLocalResult{Attempts: cfg.Attempts, TCPSuccesses: 2, TCPMS: 40}
+	classifyProxyResult(&r, cfg, 0)
+	if r.Status != "edge" || r.SuccessRate != 66 {
+		t.Fatalf("blank SNI candidate should be retained as edge, got %#v", r)
+	}
+}
+
+func TestHTTP403WithCloudflareHeadersIsNotRejected(t *testing.T) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer ln.Close()
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		conn, err := ln.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+		buf := make([]byte, 4096)
+		_, _ = conn.Read(buf)
+		_, _ = conn.Write([]byte("HTTP/1.1 403 Forbidden\r\nServer: cloudflare\r\nCF-Ray: local-test\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"))
+	}()
+
+	host, portText, err := net.SplitHostPort(ln.Addr().String())
+	if err != nil {
+		t.Fatal(err)
+	}
+	port, ok := parsePortForTest(portText)
+	if !ok {
+		t.Fatalf("bad test port: %s", portText)
+	}
+	cfg := proxyProbeConfig{Host: "example.com", Path: "/cdn-cgi/trace", EnableTLS: false, Attempts: 1, Timeout: 2 * time.Second}
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	attempt := probeProxyOnce(ctx, proxyCandidate{Host: host, Port: port}, cfg)
+	<-done
+	if !attempt.TCP || !attempt.HTTP || !attempt.CF || !attempt.Strong || attempt.HTTPCode != 403 {
+		t.Fatalf("403 Cloudflare response should be retained as valid evidence: %#v", attempt)
+	}
+}
+
+func parsePortForTest(value string) (int, bool) {
+	n := 0
+	if value == "" {
+		return 0, false
+	}
+	for _, ch := range value {
+		if ch < '0' || ch > '9' {
+			return 0, false
+		}
+		n = n*10 + int(ch-'0')
+	}
+	return n, n > 0 && n <= 65535
+}
+
+func TestProxyLocalUIHasSafeDefaults(t *testing.T) {
+	data, err := staticFiles.ReadFile("index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	html := string(data)
+	required := []string{"ProxyIP Optimizer", "start_proxy_task", "example.com", "Host 默认跟随 SNI"}
+	for _, item := range required {
+		if !strings.Contains(html, item) {
+			t.Fatalf("UI missing required marker %q", item)
+		}
+	}
+	if strings.Contains(html, "value=\"example.com\"") {
+		t.Fatal("SNI example must remain a placeholder, not a persisted default value")
+	}
+}

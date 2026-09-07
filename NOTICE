@@ -1,0 +1,7 @@
+ProxyIP Optimizer
+
+This project is based on and continues development from CFData-WEB.
+Original project copyright and GNU GPL v3.0-or-later licensing terms are retained.
+See LICENSE for the full license text.
+
+Project-specific changes include a local ProxyIP validation workflow, a redesigned local Web UI, tolerant multi-stage probing, and local-only defaults.
