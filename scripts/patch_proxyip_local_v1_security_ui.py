@@ -31,7 +31,8 @@ if needle in readme:
     readme = readme.replace(needle, replacement, 1)
 readme_path.write_text(readme, encoding='utf-8')
 
-# Extend local-only regression tests with static UI/privacy assertions.
+# Extend local-only regression tests with static UI safety assertions.
+# Keep the test itself generic so no user-specific value is ever committed into product source.
 test_path = go / 'proxy_local_integration_test.go'
 test = test_path.read_text(encoding='utf-8')
 if 'TestProxyLocalUIHasSafeDefaults' not in test:
@@ -49,11 +50,8 @@ func TestProxyLocalUIHasSafeDefaults(t *testing.T) {
             t.Fatalf("UI missing required marker %q", item)
         }
     }
-    banned := []string{"rongxiaofeng", "vpn.rong", "125.120.102.42", "45.196.234.118"}
-    for _, item := range banned {
-        if strings.Contains(strings.ToLower(html), strings.ToLower(item)) {
-            t.Fatalf("UI contains private marker %q", item)
-        }
+    if strings.Contains(html, "value=\"example.com\"") {
+        t.Fatal("SNI example must remain a placeholder, not a persisted default value")
     }
 }
 '''
