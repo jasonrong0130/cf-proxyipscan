@@ -30,12 +30,12 @@ func TestNormalizeProxyConfigAllowsManualAttempts(t *testing.T) {
 	}
 }
 
-func TestClassifyIsMetricOnly(t *testing.T) {
+func TestClassifyRequiresHTTPForEligible(t *testing.T) {
 	cfg := proxyProbeConfig{SNI: "example.com", Host: "example.com", EnableTLS: true}
 	result := proxyLocalResult{Attempts: 1, TCPSuccesses: 1, TLSSuccesses: 1, HTTPSuccesses: 0, TCPMS: 35}
 	classifyProxyResult(&result, cfg, 0)
-	if result.Status != "success" || result.Stage != "tls" {
-		t.Fatalf("reachable candidate should report factual stage, got %#v", result)
+	if result.Status != "failed" || result.Stage != "tls" || result.SuccessRate != 0 {
+		t.Fatalf("TLS-only candidate must not be marked eligible, got %#v", result)
 	}
 }
 

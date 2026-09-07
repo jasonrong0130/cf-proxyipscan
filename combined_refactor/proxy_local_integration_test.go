@@ -25,12 +25,12 @@ func TestParseProxyCandidatesDeduplicatesAndKeepsPorts(t *testing.T) {
 	}
 }
 
-func TestBlankSNIIsTCPOnlyAndReportedFactually(t *testing.T) {
-	cfg := normalizeProxyConfig(proxyLocalTaskRequest{EnableTLS: true})
+func TestTCPOnlyIsNotEligible(t *testing.T) {
+	cfg := normalizeProxyConfig(proxyLocalTaskRequest{EnableTLS: true, SNI: "example.com"})
 	r := proxyLocalResult{Attempts: cfg.Attempts, TCPSuccesses: 1, TCPMS: 40}
 	classifyProxyResult(&r, cfg, 0)
-	if r.Status != "success" || r.Stage != "tcp" || r.SuccessRate != 100 {
-		t.Fatalf("blank SNI candidate should report TCP reachability, got %#v", r)
+	if r.Status != "failed" || r.Stage != "tcp" || r.SuccessRate != 0 {
+		t.Fatalf("TCP-only candidate must not be marked eligible, got %#v", r)
 	}
 }
 
@@ -91,7 +91,7 @@ func TestProxyLocalUIHasSafeDefaults(t *testing.T) {
 		t.Fatal(err)
 	}
 	html := string(data)
-	required := []string{"CF优选IP筛选器", "start_proxy_task", "example.com", "Host 默认跟随 SNI", "一键测速", "pageSize"}
+	required := []string{"CF优选IP筛选器", "start_proxy_task", "example.com", "Host 默认跟随 SNI", "一键测速", "停止测速", "请先填写实际使用的 SNI", "pageSize"}
 	for _, item := range required {
 		if !strings.Contains(html, item) {
 			t.Fatalf("UI missing required marker %q", item)
