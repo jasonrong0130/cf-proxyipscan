@@ -6,6 +6,7 @@ on:
       - feature/lightweight-speed-export-v4
     paths:
       - tools/apply_v4.py
+      - .github/workflows/apply-v4.yml
 
 permissions:
   contents: write
