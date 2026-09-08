@@ -105,16 +105,17 @@ tbody tr:hover{background:rgba(255,255,255,.56)}td.sticky,th.sticky{position:sti
           <div class="formrow"><label>Host</label><input class="input" id="host" placeholder="Host 默认跟随 SNI"></div>
           <div class="formrow"><label>缺省端口</label><input class="input" id="fallbackPort" type="number" value="443" min="1" max="65535"></div>
           <div class="formrow"><label>每 IP 次数</label><input class="input" id="attempts" type="number" value="1" min="1" max="5"></div>
-          <div class="formrow"><label>测试并发</label><input class="input" id="threads" type="number" value="8" min="1" max="16"></div>
+          <div class="formrow"><label>测试并发</label><input class="input" id="threads" type="number" value="8" min="1" max="512"></div>
           <div class="formrow"><label>单次超时</label><input class="input" id="timeoutMs" type="number" value="5000" min="1500" max="15000"></div>
           <div class="formrow"><label>忽略证书</label><div class="switchrow"><div class="switch" id="insecureSwitch"><i></i></div><span id="insecureText">关闭</span></div></div>
-          <div class="formrow"><label>测速并发</label><input class="input" id="speedThreads" type="number" value="1" min="1" max="2"></div>
+          <div class="formrow"><label>测速并发</label><input class="input" id="speedThreads" type="number" value="1" min="1" max="16"></div>
+          <div class="note">并发提示：普通测试默认 8，64 以上会明显增加连接与 CPU 占用；测速默认 1，建议按机器性能逐步提高。</div>
         </details>
       </div>
     </section>
 
     <section class="glass runbar">
-      <div><div class="run-title">◎ 测试控制</div><div class="run-note">轻量模式默认 8 并发、每 IP 仅测试 1 次；测速默认单线程并限制单节点下载量。</div></div>
+      <div><div class="run-title">◎ 测试控制</div><div class="run-note">轻量模式默认 8 并发、每 IP 仅测试 1 次；高性能机器可在高级设置提高并发，测速默认单线程。</div></div>
       <div class="run-buttons"><button class="btn primary" id="startBtn">▶ 开始测试</button><button class="btn soft hidden" id="stopBtn">■ 停止</button></div>
     </section>
 
@@ -371,7 +372,7 @@ function nsbRows(rows){return rows.map(r=>({ip:r.ip,port:String(r.port),speed:r.
 function startSpeed(skipTested){
   if(runningProbe||runningSpeed){toast('当前已有任务运行中');return}
   const rows=scopeRows();if(!rows.length){toast($('scopeSelect').value==='selected'?'请先勾选节点':'没有可优选节点可测速');return}
-  const preset=$('speedPreset').value,url=preset==='custom'?filterValue('speedCustom'):(preset||'auto'),workers=Math.max(1,Math.min(2,num($('speedThreads').value)||1));
+  const preset=$('speedPreset').value,url=preset==='custom'?filterValue('speedCustom'):(preset||'auto'),workers=Math.max(1,Math.min(16,num($('speedThreads').value)||1));
   if(!url){toast('请填写自定义测速地址');return}
   runningSpeed=true;setBusy(true);$('speedBtn').disabled=true;$('continueSpeedBtn').disabled=true;$('stopSpeedBtn').classList.remove('hidden');$('stopSpeedBtn').disabled=false;
   setProgress(skipTested?'继续测速中':'测速中','准备 '+rows.length+' 条',0,rows.length);
@@ -418,7 +419,7 @@ $('startBtn').onclick=()=>{
   setProgress('准备开始','本地链路测试',0,importedCount||1);
   if(!send('start_proxy_task',{
     fileName,fileContent:text,fallbackPort:Number($('fallbackPort').value||443),sni,host:$('host').value.trim(),path:$('path').value.trim()||'/cdn-cgi/trace',
-    enableTLS:tls,mode:'manual',threads:Math.max(1,Math.min(16,Number($('threads').value||8))),timeoutMs:Number($('timeoutMs').value||5000),attempts:Number($('attempts').value||1),insecure
+    enableTLS:tls,mode:'manual',threads:Math.max(1,Math.min(512,Number($('threads').value||8))),timeoutMs:Number($('timeoutMs').value||5000),attempts:Number($('attempts').value||1),insecure
   }))finishProbe()
 };
 $('stopBtn').onclick=()=>{if(runningProbe||runningSpeed){send('stop_task');$('progressTitle').textContent='正在停止…'}};
@@ -445,8 +446,8 @@ $('saveDefaults').onclick=()=>{
 function loadDefaults(){try{
   const c=JSON.parse(localStorage.getItem('cfIpSelectorConfig')||'{}');
   ['sni','path','host','fallbackPort','attempts','timeoutMs'].forEach(id=>{if(c[id]!==undefined&&c[id]!==null&&c[id]!=='')$(id).value=c[id]});
-  if(c.version===4&&c.threads) $('threads').value=Math.max(1,Math.min(16,num(c.threads))); else $('threads').value=8;
-  if(c.version===4&&c.speedThreads) $('speedThreads').value=Math.max(1,Math.min(2,num(c.speedThreads))); else $('speedThreads').value=1;
+  if(c.version===4&&c.threads) $('threads').value=Math.max(1,Math.min(512,num(c.threads))); else $('threads').value=8;
+  if(c.version===4&&c.speedThreads) $('speedThreads').value=Math.max(1,Math.min(16,num(c.speedThreads))); else $('speedThreads').value=1;
   if(typeof c.tls==='boolean'){tls=c.tls;toggleSwitch($('tlsSwitch'),tls,'tlsText')}
   if(typeof c.insecure==='boolean'){insecure=c.insecure;toggleSwitch($('insecureSwitch'),insecure,'insecureText')}
   if(c.speedPreset)$('speedPreset').value=c.speedPreset;if(c.speedCustom)$('speedCustom').value=c.speedCustom;$('speedCustom').classList.toggle('hidden',$('speedPreset').value!=='custom')

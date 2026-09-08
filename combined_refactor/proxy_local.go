@@ -136,7 +136,7 @@ func normalizeProxyPath(value string) string {
 }
 
 func normalizeProxyConfig(req proxyLocalTaskRequest) proxyProbeConfig {
-	threads := clampProxyInt(req.Threads, 8, 1, 16)
+	threads := clampProxyInt(req.Threads, 8, 1, 512)
 	timeoutMS := clampProxyInt(req.TimeoutMS, 5000, 1500, 15000)
 	attempts := clampProxyInt(req.Attempts, 1, 1, 5)
 	sni := normalizeProxyHost(req.SNI)

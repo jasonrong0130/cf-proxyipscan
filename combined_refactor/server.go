@@ -288,8 +288,8 @@ func handleWebSocket(w http.ResponseWriter, r *http.Request) {
 			if params.SpeedTest <= 0 {
 				params.SpeedTest = 1
 			}
-			if params.SpeedTest > 2 {
-				params.SpeedTest = 2
+			if params.SpeedTest > 16 {
+				params.SpeedTest = 16
 			}
 			if params.SpeedLimit < 0 {
 				params.SpeedLimit = 0
