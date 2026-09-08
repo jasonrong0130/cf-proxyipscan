@@ -519,14 +519,14 @@ func runNSBScanWorkers(ctx context.Context, total, maxWorkers, resultLimit int, 
 }
 
 func runNSBDownloadSpeed(ctx context.Context, ip string, port int, enableTLS bool, testURL string) (float64, string) {
-	const speedWindow = 10 * time.Second
-	const speedMaxBytes = 200 * 1024 * 1024
+	const speedWindow = 5 * time.Second
+	const speedMaxBytes int64 = 32 * 1024 * 1024
+	const speedBufferSize = 256 * 1024
 
 	scheme := "http"
 	if enableTLS {
 		scheme = "https"
 	}
-
 	parsedURL, err := parseSpeedTestURL(testURL, scheme)
 	if err != nil {
 		return 0, "测速地址解析失败: " + err.Error()
@@ -534,20 +534,20 @@ func runNSBDownloadSpeed(ctx context.Context, ip string, port int, enableTLS boo
 
 	transport := &http.Transport{
 		DialContext: func(c context.Context, network, addr string) (net.Conn, error) {
-			return dialContextWithTimeout(c, "tcp", net.JoinHostPort(ip, strconv.Itoa(port)), 5*time.Second)
+			return dialContextWithTimeout(c, "tcp", net.JoinHostPort(ip, strconv.Itoa(port)), 4*time.Second)
 		},
-		TLSHandshakeTimeout: 10 * time.Second,
+		TLSHandshakeTimeout: 5 * time.Second,
 		TLSClientConfig:     tlsConfigWithRootCAs(parsedURL.Hostname()),
 		DisableCompression:  true,
+		DisableKeepAlives:   true,
+		ForceAttemptHTTP2:   false,
+		MaxIdleConns:        1,
+		MaxIdleConnsPerHost: 1,
 	}
-	client := http.Client{
-		Transport: wrapDebugTransport("nsb-speed", transport),
-		Timeout:   speedWindow + 5*time.Second,
-	}
+	defer transport.CloseIdleConnections()
 
-	speedCtx, cancel := context.WithCancel(ctx)
+	speedCtx, cancel := context.WithTimeout(ctx, speedWindow)
 	defer cancel()
-
 	req, err := http.NewRequestWithContext(speedCtx, "GET", parsedURL.String(), nil)
 	if err != nil {
 		return 0, "测速请求构建失败: " + err.Error()
@@ -556,86 +556,33 @@ func runNSBDownloadSpeed(ctx context.Context, ip string, port int, enableTLS boo
 	req.Header.Set("User-Agent", "Mozilla/5.0")
 	req.Header.Set("Accept-Encoding", "identity")
 
-	start := time.Now()
+	client := http.Client{Transport: transport}
 	resp, err := client.Do(req)
 	if err != nil {
+		if ctx.Err() != nil {
+			return 0, "测速任务已终止"
+		}
 		return 0, "测速请求失败: " + err.Error()
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
-		io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
 		return 0, formatSpeedHTTPFailure(resp.StatusCode)
 	}
 
-	buf := make([]byte, 32*1024)
-	type readChunk struct {
-		n   int
-		err error
-	}
-	chunks := make(chan readChunk, 16)
-	readerDone := make(chan struct{})
-	safeGo("nsb-speed-reader", nil, func() {
-		defer close(readerDone)
-		for {
-			n, err := resp.Body.Read(buf)
-			select {
-			case chunks <- readChunk{n: n, err: err}:
-			case <-speedCtx.Done():
-				return
-			}
-			if err != nil {
-				return
-			}
-		}
-	})
-
-	windowTimer := time.NewTimer(speedWindow)
-	defer windowTimer.Stop()
-
-	var written int64
-	for {
-		select {
-		case <-ctx.Done():
-			cancel()
-			resp.Body.Close()
-			<-readerDone
-			return 0, "测速任务已终止"
-		case <-windowTimer.C:
-			cancel()
-			resp.Body.Close()
-			<-readerDone
-			goto done
-		case chunk := <-chunks:
-			if chunk.n > 0 {
-				written += int64(chunk.n)
-				if written >= speedMaxBytes {
-					cancel()
-					resp.Body.Close()
-					<-readerDone
-					goto done
-				}
-			}
-			if chunk.err != nil {
-				if chunk.err != io.EOF {
-					cancel()
-					resp.Body.Close()
-					<-readerDone
-					return 0, "测速下载失败: " + chunk.err.Error()
-				}
-				cancel()
-				resp.Body.Close()
-				<-readerDone
-				goto done
-			}
-		}
-	}
-
-done:
+	start := time.Now()
+	buf := make([]byte, speedBufferSize)
+	written, readErr := io.CopyBuffer(io.Discard, io.LimitReader(resp.Body, speedMaxBytes), buf)
 	duration := time.Since(start)
-	if duration <= 0 {
-		return 0, "测速耗时异常: duration<=0"
+	if ctx.Err() != nil {
+		return 0, "测速任务已终止"
 	}
-
+	if written <= 0 || duration <= 0 {
+		return 0, "测速未收到有效下载数据"
+	}
+	if readErr != nil && speedCtx.Err() == nil && readErr != io.EOF {
+		return 0, "测速下载失败: " + readErr.Error()
+	}
 	return float64(written) / duration.Seconds() / 1024, ""
 }
 
@@ -921,9 +868,9 @@ func runNSBSpeedBatch(ctx context.Context, session *appSession, rows []nsbScanMe
 	}
 
 	session.sendWSMessage("log", fmt.Sprintf("开始非标测速：%d 条记录，线程数=%d，目标上限=%d，测速阈值=%.2fMB/s", len(results), maxWorkers, speedLimit, speedMin))
-	reportNSBProgress(session, "speed", 0, speedLimit, "测速中")
+	reportNSBProgress(session, "speed", 0, len(results), "测速中")
 	speedCanceled := runNSBSpeedWorkers(ctx, results, maxWorkers, speedLimit, speedMin, func(tested, qualified int) {
-		reportNSBProgress(session, "speed", qualified, speedLimit, "测速中")
+		reportNSBProgress(session, "speed", tested, len(results), "测速中")
 	}, func(idx int, speedErr string) {
 		res := &results[idx]
 		session.sendWSMessage("nsb_scan_result", res.toNSBLiveMessage(res.speedText, compact))
@@ -976,28 +923,28 @@ func nsbMessageToResult(row nsbScanMessage) (iptestResult, bool) {
 		return iptestResult{}, false
 	}
 	return iptestResult{
-		ipAddr:       strings.TrimSpace(row.IP),
-		port:         port,
-		dataCenter:   row.DC,
-		locCode:      row.Loc,
-		region:       row.Region,
-		city:         row.City,
-		latency:      row.Latency,
-		lossRate:     parsePercent(row.LossRate),
-		outboundIP:   row.OutboundIP,
-		ipType:       row.IPType,
-		asnNumber:    row.ASNNumber,
-		asnOrg:       row.ASNOrg,
-		visitScheme:  firstNonEmpty(row.VisitScheme, mapBoolTLS(row.TLS)),
-		tlsVersion:   row.TLSVersion,
-		sni:          row.SNI,
-		httpVersion:  row.HTTPVersion,
-		warp:         row.Warp,
-		gateway:      row.Gateway,
-		rbi:          row.RBI,
-		kex:          row.Kex,
-		timestamp:    row.Timestamp,
-		speedText:    row.Speed,
+		ipAddr:        strings.TrimSpace(row.IP),
+		port:          port,
+		dataCenter:    row.DC,
+		locCode:       row.Loc,
+		region:        row.Region,
+		city:          row.City,
+		latency:       row.Latency,
+		lossRate:      parsePercent(row.LossRate),
+		outboundIP:    row.OutboundIP,
+		ipType:        row.IPType,
+		asnNumber:     row.ASNNumber,
+		asnOrg:        row.ASNOrg,
+		visitScheme:   firstNonEmpty(row.VisitScheme, mapBoolTLS(row.TLS)),
+		tlsVersion:    row.TLSVersion,
+		sni:           row.SNI,
+		httpVersion:   row.HTTPVersion,
+		warp:          row.Warp,
+		gateway:       row.Gateway,
+		rbi:           row.RBI,
+		kex:           row.Kex,
+		timestamp:     row.Timestamp,
+		speedText:     row.Speed,
 		originalInput: row.OriginalInput,
 	}, true
 }

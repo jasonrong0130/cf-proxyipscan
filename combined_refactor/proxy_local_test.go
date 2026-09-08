@@ -18,8 +18,8 @@ func TestNormalizeProxyConfigNoPersonalDefault(t *testing.T) {
 	if cfg.SNI != "" || cfg.Host != "" {
 		t.Fatalf("SNI/Host must remain blank by default: %#v", cfg)
 	}
-	if cfg.Path != "/cdn-cgi/trace" || cfg.Attempts != 1 {
-		t.Fatalf("unexpected defaults: %#v", cfg)
+	if cfg.Path != "/cdn-cgi/trace" || cfg.Attempts != 1 || cfg.Threads != 8 {
+		t.Fatalf("unexpected lightweight defaults: %#v", cfg)
 	}
 }
 
@@ -27,6 +27,13 @@ func TestNormalizeProxyConfigAllowsManualAttempts(t *testing.T) {
 	cfg := normalizeProxyConfig(proxyLocalTaskRequest{Attempts: 3, Threads: 60, TimeoutMS: 7000})
 	if cfg.Attempts != 3 || cfg.Threads != 60 || cfg.Timeout != 7000000000 {
 		t.Fatalf("manual test config not preserved: %#v", cfg)
+	}
+}
+
+func TestNormalizeProxyConfigCapsExtremeConcurrency(t *testing.T) {
+	cfg := normalizeProxyConfig(proxyLocalTaskRequest{Threads: 9999})
+	if cfg.Threads != 512 {
+		t.Fatalf("extreme concurrency must be capped at 512, got %d", cfg.Threads)
 	}
 }
 
