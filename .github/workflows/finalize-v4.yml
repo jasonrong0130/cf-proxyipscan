@@ -1,0 +1,47 @@
+name: Finalize V4
+
+on:
+  push:
+    branches:
+      - feature/lightweight-speed-export-v4
+    paths:
+      - tools/finalize_v4_limits.py
+
+permissions:
+  contents: write
+
+jobs:
+  finalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/lightweight-speed-export-v4
+          fetch-depth: 0
+
+      - name: Apply final V4 concurrency settings
+        run: python tools/finalize_v4_limits.py
+
+      - name: Format and test
+        run: |
+          cd combined_refactor
+          gofmt -w proxy_local.go proxy_local_test.go server.go
+          go test ./...
+
+      - name: Remove temporary patch helpers
+        run: |
+          rm -f .github/workflows/apply-v4.yml
+          rm -f .github/workflows/finalize-v4.yml
+          rm -f tools/apply_v4.py
+          rm -f tools/apply_v4_backend.py
+          rm -f tools/index_v4.patch.gz.b64
+          rm -f tools/finalize_v4_limits.py
+
+      - name: Commit finalized V4
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --quiet && exit 0
+          git commit -m "feat: finalize configurable V4 concurrency"
+          git push origin HEAD:feature/lightweight-speed-export-v4
