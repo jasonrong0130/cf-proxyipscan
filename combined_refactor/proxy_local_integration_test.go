@@ -100,8 +100,8 @@ func TestProxyLocalUIHasSafeDefaults(t *testing.T) {
 	if strings.Contains(html, "value=\"example.com\"") {
 		t.Fatal("SNI example must remain a placeholder, not a persisted default value")
 	}
-	if !strings.Contains(html, "id=\"threads\" type=\"number\" value=\"8\" min=\"1\" max=\"16\"") || !strings.Contains(html, "id=\"speedThreads\" type=\"number\" value=\"1\" min=\"1\" max=\"2\"") {
-		t.Fatal("V4 lightweight concurrency defaults are missing")
+	if !strings.Contains(html, "id=\"threads\" type=\"number\" value=\"8\" min=\"1\" max=\"512\"") || !strings.Contains(html, "id=\"speedThreads\" type=\"number\" value=\"1\" min=\"1\" max=\"16\"") {
+		t.Fatal("V4 safe defaults / configurable concurrency are missing")
 	}
 	if strings.Contains(html, "data-sort=\"httpStatus\">HTTP") || strings.Contains(html, "<th>说明</th>") {
 		t.Fatal("HTTP/说明 columns must remain removed from the V4 result table")
