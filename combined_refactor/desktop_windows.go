@@ -43,7 +43,11 @@ func runDesktopWindow(displayURL string) error {
 		"--no-first-run",
 		"--no-default-browser-check",
 		"--disable-background-mode",
-		"--window-size=1380,900",
+		// 桌面版使用更紧凑的默认窗口；避免高分屏下被 Windows 150%/175% 缩放得过大。
+		"--window-size=1160,760",
+		"--high-dpi-support=1",
+		"--force-device-scale-factor=1",
+		"--force-color-profile=srgb",
 	}
 	cmd := exec.Command(browserPath, args...)
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
