@@ -4,60 +4,108 @@ package main
 
 import (
 	"errors"
+	"fmt"
+	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"syscall"
+	"time"
 	"unsafe"
 
-	webview2 "github.com/jchv/go-webview2"
 	"golang.org/x/sys/windows"
 )
 
 func defaultDesktopMode() bool { return true }
 
 func runDesktopWindow(displayURL string) error {
-	hideConsoleWindow()
+	if err := waitForDesktopServer(displayURL); err != nil {
+		showDesktopError("CF优选IP筛选器", "本地服务启动失败："+err.Error())
+		return err
+	}
 
-	dataPath := filepath.Join(os.Getenv("LOCALAPPDATA"), "CFIPSelector", "WebView2")
+	browserPath, browserName := findDesktopBrowser()
+	if browserPath == "" {
+		err := errors.New("未找到 Microsoft Edge 或 Google Chrome")
+		showDesktopError("CF优选IP筛选器", "无法启动桌面窗口。请确认 Microsoft Edge 已安装。")
+		return err
+	}
+
+	dataPath := filepath.Join(os.Getenv("LOCALAPPDATA"), "CFIPSelector", browserName+"App")
 	if os.Getenv("LOCALAPPDATA") == "" {
-		dataPath = filepath.Join(os.TempDir(), "CFIPSelector-WebView2")
+		dataPath = filepath.Join(os.TempDir(), "CFIPSelector-"+browserName+"App")
 	}
 	_ = os.MkdirAll(dataPath, 0o755)
 
-	w := webview2.NewWithOptions(webview2.WebViewOptions{
-		Debug:     debugMode,
-		AutoFocus: true,
-		DataPath:  dataPath,
-		WindowOptions: webview2.WindowOptions{
-			Title:  "CF优选IP筛选器",
-			Width:  1380,
-			Height: 900,
-			Center: true,
-		},
-	})
-	if w == nil {
-		showDesktopError("CF优选IP筛选器", "无法启动桌面窗口。请确认 Microsoft Edge WebView2 Runtime 已安装。")
-		return errors.New("无法创建 WebView2 桌面窗口")
+	args := []string{
+		"--app=" + displayURL,
+		"--user-data-dir=" + dataPath,
+		"--no-first-run",
+		"--no-default-browser-check",
+		"--disable-background-mode",
+		"--window-size=1380,900",
 	}
-	defer w.Destroy()
+	cmd := exec.Command(browserPath, args...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
+	if err := cmd.Start(); err != nil {
+		showDesktopError("CF优选IP筛选器", "桌面窗口启动失败："+err.Error())
+		return err
+	}
 
-	w.SetSize(1024, 680, webview2.HintMin)
-	w.SetSize(1380, 900, webview2.HintNone)
-	w.Navigate(displayURL)
-	w.Run()
+	// 使用独立 user-data-dir，浏览器会维持一个独立的 App 进程组。
+	// 用户关闭 App 窗口后 Wait 返回，主程序随后关闭本地 HTTP 服务。
+	if err := cmd.Wait(); err != nil {
+		return fmt.Errorf("%s 桌面窗口异常退出: %w", browserName, err)
+	}
 	return nil
 }
 
-func hideConsoleWindow() {
-	kernel32 := windows.NewLazySystemDLL("kernel32.dll")
-	user32 := windows.NewLazySystemDLL("user32.dll")
-	getConsoleWindow := kernel32.NewProc("GetConsoleWindow")
-	showWindow := user32.NewProc("ShowWindow")
-
-	hwnd, _, _ := getConsoleWindow.Call()
-	if hwnd != 0 {
-		const swHide = 0
-		_, _, _ = showWindow.Call(hwnd, swHide)
+func waitForDesktopServer(displayURL string) error {
+	client := &http.Client{Timeout: 500 * time.Millisecond}
+	deadline := time.Now().Add(4 * time.Second)
+	var lastErr error
+	for time.Now().Before(deadline) {
+		resp, err := client.Get(displayURL)
+		if err == nil {
+			_ = resp.Body.Close()
+			return nil
+		}
+		lastErr = err
+		time.Sleep(100 * time.Millisecond)
 	}
+	if lastErr == nil {
+		lastErr = errors.New("等待本地服务超时")
+	}
+	return lastErr
+}
+
+func findDesktopBrowser() (string, string) {
+	candidates := []struct {
+		path string
+		name string
+	}{
+		{filepath.Join(os.Getenv("ProgramFiles(x86)"), "Microsoft", "Edge", "Application", "msedge.exe"), "Edge"},
+		{filepath.Join(os.Getenv("ProgramFiles"), "Microsoft", "Edge", "Application", "msedge.exe"), "Edge"},
+		{filepath.Join(os.Getenv("LOCALAPPDATA"), "Microsoft", "Edge", "Application", "msedge.exe"), "Edge"},
+		{filepath.Join(os.Getenv("ProgramFiles"), "Google", "Chrome", "Application", "chrome.exe"), "Chrome"},
+		{filepath.Join(os.Getenv("ProgramFiles(x86)"), "Google", "Chrome", "Application", "chrome.exe"), "Chrome"},
+		{filepath.Join(os.Getenv("LOCALAPPDATA"), "Google", "Chrome", "Application", "chrome.exe"), "Chrome"},
+	}
+	for _, candidate := range candidates {
+		if candidate.path == "" {
+			continue
+		}
+		if info, err := os.Stat(candidate.path); err == nil && !info.IsDir() {
+			return candidate.path, candidate.name
+		}
+	}
+	if path, err := exec.LookPath("msedge.exe"); err == nil {
+		return path, "Edge"
+	}
+	if path, err := exec.LookPath("chrome.exe"); err == nil {
+		return path, "Chrome"
+	}
+	return "", ""
 }
 
 func showDesktopError(title, message string) {
