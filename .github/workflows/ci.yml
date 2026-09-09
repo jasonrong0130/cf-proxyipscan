@@ -39,15 +39,15 @@ jobs:
         working-directory: combined_refactor
         run: go test ./...
 
-      - name: Windows amd64 smoke build
+      - name: Windows amd64 desktop smoke build
         working-directory: combined_refactor
         env:
           GOOS: windows
           GOARCH: amd64
           CGO_ENABLED: "0"
-        run: go build -trimpath -ldflags '-s -w -X main.appVersion=ci' -o ../cf-ip-selector-windows-amd64-test.exe .
+        run: go build -trimpath -ldflags '-s -w -H=windowsgui -X main.appVersion=ci' -o ../cf-ip-selector-windows-amd64-test.exe .
 
-      - name: Upload Windows test build
+      - name: Upload Windows desktop test build
         uses: actions/upload-artifact@v4
         with:
           name: cf-ip-selector-windows-amd64-test
