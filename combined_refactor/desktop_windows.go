@@ -19,6 +19,9 @@ import (
 func defaultDesktopMode() bool { return true }
 
 func runDesktopWindow(displayURL string) error {
+	// 桌面模式不向用户保留控制台窗口；错误通过 MessageBox 呈现。
+	hideConsoleWindow()
+
 	if err := waitForDesktopServer(displayURL); err != nil {
 		showDesktopError("CF优选IP筛选器", "本地服务启动失败："+err.Error())
 		return err
@@ -31,11 +34,14 @@ func runDesktopWindow(displayURL string) error {
 		return err
 	}
 
-	dataPath := filepath.Join(os.Getenv("LOCALAPPDATA"), "CFIPSelector", browserName+"App")
-	if os.Getenv("LOCALAPPDATA") == "" {
-		dataPath = filepath.Join(os.TempDir(), "CFIPSelector-"+browserName+"App")
+	// 每次启动使用独立 profile，避免 Edge/Chrome 的单实例锁、残留后台进程或旧 profile
+	// 导致 --app 请求被吞掉、主程序一直等待但窗口不出现。
+	dataPath, err := os.MkdirTemp("", "CFIPSelector-"+browserName+"App-")
+	if err != nil {
+		showDesktopError("CF优选IP筛选器", "无法创建桌面运行目录："+err.Error())
+		return err
 	}
-	_ = os.MkdirAll(dataPath, 0o755)
+	defer os.RemoveAll(dataPath)
 
 	args := []string{
 		"--app=" + displayURL,
@@ -43,10 +49,8 @@ func runDesktopWindow(displayURL string) error {
 		"--no-first-run",
 		"--no-default-browser-check",
 		"--disable-background-mode",
-		// 桌面版使用更紧凑的默认窗口；避免高分屏下被 Windows 150%/175% 缩放得过大。
+		"--disable-features=msEdgeSidebarV2",
 		"--window-size=1160,760",
-		"--high-dpi-support=1",
-		"--force-device-scale-factor=1",
 		"--force-color-profile=srgb",
 	}
 	cmd := exec.Command(browserPath, args...)
@@ -56,8 +60,8 @@ func runDesktopWindow(displayURL string) error {
 		return err
 	}
 
-	// 使用独立 user-data-dir，浏览器会维持一个独立的 App 进程组。
-	// 用户关闭 App 窗口后 Wait 返回，主程序随后关闭本地 HTTP 服务。
+	// 独立 profile 下该进程对应本次 App 生命周期；窗口关闭后 Wait 返回，
+	// 主程序随后关闭本地 HTTP 服务，不残留后台端口。
 	if err := cmd.Wait(); err != nil {
 		return fmt.Errorf("%s 桌面窗口异常退出: %w", browserName, err)
 	}
@@ -110,6 +114,18 @@ func findDesktopBrowser() (string, string) {
 		return path, "Chrome"
 	}
 	return "", ""
+}
+
+func hideConsoleWindow() {
+	kernel32 := windows.NewLazySystemDLL("kernel32.dll")
+	user32 := windows.NewLazySystemDLL("user32.dll")
+	getConsoleWindow := kernel32.NewProc("GetConsoleWindow")
+	showWindow := user32.NewProc("ShowWindow")
+	hwnd, _, _ := getConsoleWindow.Call()
+	if hwnd != 0 {
+		const swHide = 0
+		_, _, _ = showWindow.Call(hwnd, swHide)
+	}
 }
 
 func showDesktopError(title, message string) {
