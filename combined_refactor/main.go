@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -17,7 +18,8 @@ import (
 
 var webUser, webPassword string
 var webSessionMinutes int
-var boolFlagNames = []string{"cli", "nsbtls", "progress", "nocolor", "compactipv4", "nsbcompact", "github", "nsbqualified", "skipgeo", "v6bracket", "edgetunnel"}
+var desktopMode bool
+var boolFlagNames = []string{"cli", "desktop", "nsbtls", "progress", "nocolor", "compactipv4", "nsbcompact", "github", "nsbqualified", "skipgeo", "v6bracket", "edgetunnel"}
 
 type latestReleaseInfo struct {
 	TagName string `json:"tag_name"`
@@ -149,6 +151,7 @@ func main() {
 	flag.IntVar(&listenPort, "port", 13335, "服务监听端口")
 	flag.StringVar(&listenHost, "host", "127.0.0.1", "服务监听地址；默认仅监听本机 127.0.0.1，需要局域网访问时再显式修改")
 	flag.StringVar(&speedTestURL, "url", autoSpeedURLValue, "测速下载地址；auto 表示由后端自动选择内置测速源")
+	flag.BoolVar(&desktopMode, "desktop", defaultDesktopMode(), "Windows 桌面窗口模式；设为 false 可恢复原浏览器访问模式")
 	flag.BoolVar(&skipGeoCheck, "skipgeo", false, "跳过地区/代理环境验证")
 	flag.StringVar(&customDNSServer, "dns", defaultDNSServers, "自定义 DNS 服务器，例如 223.5.5.5、8.8.8.8:53 或逗号分隔多个；默认系统 DNS 优先、失败回退到该内置 DNS，显式提供时强制使用指定 DNS")
 	flag.Var(debugFlagValue{}, "debug", "开启调试输出等级：error、all；也兼容 true/false，-debug 默认为 error")
@@ -234,8 +237,12 @@ func main() {
 	addr := fmt.Sprintf(":%d", listenPort)
 	displayHost := "localhost"
 	if strings.TrimSpace(listenHost) != "" {
-		addr = fmt.Sprintf("%s:%d", strings.TrimSpace(listenHost), listenPort)
-		displayHost = strings.TrimSpace(listenHost)
+		host := strings.TrimSpace(listenHost)
+		addr = fmt.Sprintf("%s:%d", host, listenPort)
+		displayHost = host
+		if host == "0.0.0.0" || host == "::" || host == "[::]" {
+			displayHost = "127.0.0.1"
+		}
 	}
 	fmt.Printf("ProxyIP Optimizer 版本: %s\n", appVersion)
 	displayURL := fmt.Sprintf("http://%s:%d", displayHost, listenPort)
@@ -257,12 +264,49 @@ func main() {
 		fmt.Printf("调试日志: %s\n", defaultDebugLogPath())
 	}
 	fmt.Printf("服务启动于 %s\n", displayURL)
-	fmt.Printf("服务启动成功，复制 %s 到浏览器打开\n", displayURL)
+
 	server := &http.Server{
 		Addr:              addr,
 		ReadHeaderTimeout: 10 * time.Second,
 	}
-	if err := server.ListenAndServe(); err != nil {
+
+	if desktopMode {
+		listener, err := net.Listen("tcp", addr)
+		if err != nil {
+			fmt.Printf("启动失败: %v\n", err)
+			return
+		}
+		serveErr := make(chan error, 1)
+		go func() {
+			err := server.Serve(listener)
+			if errors.Is(err, http.ErrServerClosed) {
+				err = nil
+			}
+			serveErr <- err
+		}()
+
+		fmt.Println("桌面模式已启用，正在打开 CF优选IP筛选器窗口...")
+		desktopErr := runDesktopWindow(displayURL)
+
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 3*time.Second)
+		_ = server.Shutdown(shutdownCtx)
+		shutdownCancel()
+
+		select {
+		case err := <-serveErr:
+			if err != nil {
+				fmt.Printf("本地服务异常退出: %v\n", err)
+			}
+		case <-time.After(500 * time.Millisecond):
+		}
+		if desktopErr != nil {
+			fmt.Printf("桌面窗口启动失败: %v\n", desktopErr)
+		}
+		return
+	}
+
+	fmt.Printf("服务启动成功，复制 %s 到浏览器打开\n", displayURL)
+	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		fmt.Printf("启动失败: %v\n", err)
 	}
 }
