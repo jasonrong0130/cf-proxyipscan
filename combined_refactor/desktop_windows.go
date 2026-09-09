@@ -4,67 +4,55 @@ package main
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"syscall"
 	"time"
 	"unsafe"
 
+	webview2 "github.com/jchv/go-webview2"
 	"golang.org/x/sys/windows"
 )
 
 func defaultDesktopMode() bool { return true }
 
 func runDesktopWindow(displayURL string) error {
-	// 桌面模式不向用户保留控制台窗口；错误通过 MessageBox 呈现。
-	hideConsoleWindow()
-
+	// 先确认本地服务已就绪，再创建原生桌面窗口。
 	if err := waitForDesktopServer(displayURL); err != nil {
 		showDesktopError("CF优选IP筛选器", "本地服务启动失败："+err.Error())
 		return err
 	}
 
-	browserPath, browserName := findDesktopBrowser()
-	if browserPath == "" {
-		err := errors.New("未找到 Microsoft Edge 或 Google Chrome")
-		showDesktopError("CF优选IP筛选器", "无法启动桌面窗口。请确认 Microsoft Edge 已安装。")
-		return err
-	}
+	// 使用 Per-Monitor V2 DPI awareness，避免 Windows 高缩放下被系统位图拉伸导致发虚。
+	enablePerMonitorDPI()
 
-	// 每次启动使用独立 profile，避免 Edge/Chrome 的单实例锁、残留后台进程或旧 profile
-	// 导致 --app 请求被吞掉、主程序一直等待但窗口不出现。
-	dataPath, err := os.MkdirTemp("", "CFIPSelector-"+browserName+"App-")
-	if err != nil {
-		showDesktopError("CF优选IP筛选器", "无法创建桌面运行目录："+err.Error())
-		return err
+	dataPath := filepath.Join(os.Getenv("LOCALAPPDATA"), "CFIPSelector", "WebView2")
+	if os.Getenv("LOCALAPPDATA") == "" {
+		dataPath = filepath.Join(os.TempDir(), "CFIPSelector-WebView2")
 	}
-	defer os.RemoveAll(dataPath)
+	_ = os.MkdirAll(dataPath, 0o755)
 
-	args := []string{
-		"--app=" + displayURL,
-		"--user-data-dir=" + dataPath,
-		"--no-first-run",
-		"--no-default-browser-check",
-		"--disable-background-mode",
-		"--disable-features=msEdgeSidebarV2",
-		"--window-size=1160,760",
-		"--force-color-profile=srgb",
+	w := webview2.NewWithOptions(webview2.WebViewOptions{
+		Debug:     debugMode,
+		AutoFocus: true,
+		DataPath:  dataPath,
+		WindowOptions: webview2.WindowOptions{
+			Title:  "CF优选IP筛选器",
+			Width:  1160,
+			Height: 760,
+			Center: true,
+		},
+	})
+	if w == nil {
+		showDesktopError("CF优选IP筛选器", "无法启动桌面窗口。请确认 Microsoft Edge WebView2 Runtime 已安装。")
+		return errors.New("无法创建 WebView2 桌面窗口")
 	}
-	cmd := exec.Command(browserPath, args...)
-	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	if err := cmd.Start(); err != nil {
-		showDesktopError("CF优选IP筛选器", "桌面窗口启动失败："+err.Error())
-		return err
-	}
+	defer w.Destroy()
 
-	// 独立 profile 下该进程对应本次 App 生命周期；窗口关闭后 Wait 返回，
-	// 主程序随后关闭本地 HTTP 服务，不残留后台端口。
-	if err := cmd.Wait(); err != nil {
-		return fmt.Errorf("%s 桌面窗口异常退出: %w", browserName, err)
-	}
+	w.SetSize(900, 620, webview2.HintMin)
+	w.SetSize(1160, 760, webview2.HintNone)
+	w.Navigate(displayURL)
+	w.Run()
 	return nil
 }
 
@@ -87,44 +75,20 @@ func waitForDesktopServer(displayURL string) error {
 	return lastErr
 }
 
-func findDesktopBrowser() (string, string) {
-	candidates := []struct {
-		path string
-		name string
-	}{
-		{filepath.Join(os.Getenv("ProgramFiles(x86)"), "Microsoft", "Edge", "Application", "msedge.exe"), "Edge"},
-		{filepath.Join(os.Getenv("ProgramFiles"), "Microsoft", "Edge", "Application", "msedge.exe"), "Edge"},
-		{filepath.Join(os.Getenv("LOCALAPPDATA"), "Microsoft", "Edge", "Application", "msedge.exe"), "Edge"},
-		{filepath.Join(os.Getenv("ProgramFiles"), "Google", "Chrome", "Application", "chrome.exe"), "Chrome"},
-		{filepath.Join(os.Getenv("ProgramFiles(x86)"), "Google", "Chrome", "Application", "chrome.exe"), "Chrome"},
-		{filepath.Join(os.Getenv("LOCALAPPDATA"), "Google", "Chrome", "Application", "chrome.exe"), "Chrome"},
-	}
-	for _, candidate := range candidates {
-		if candidate.path == "" {
-			continue
-		}
-		if info, err := os.Stat(candidate.path); err == nil && !info.IsDir() {
-			return candidate.path, candidate.name
-		}
-	}
-	if path, err := exec.LookPath("msedge.exe"); err == nil {
-		return path, "Edge"
-	}
-	if path, err := exec.LookPath("chrome.exe"); err == nil {
-		return path, "Chrome"
-	}
-	return "", ""
-}
-
-func hideConsoleWindow() {
-	kernel32 := windows.NewLazySystemDLL("kernel32.dll")
+func enablePerMonitorDPI() {
 	user32 := windows.NewLazySystemDLL("user32.dll")
-	getConsoleWindow := kernel32.NewProc("GetConsoleWindow")
-	showWindow := user32.NewProc("ShowWindow")
-	hwnd, _, _ := getConsoleWindow.Call()
-	if hwnd != 0 {
-		const swHide = 0
-		_, _, _ = showWindow.Call(hwnd, swHide)
+	setDPIContext := user32.NewProc("SetProcessDpiAwarenessContext")
+	// DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 == (HANDLE)-4
+	if err := setDPIContext.Find(); err == nil {
+		ret, _, _ := setDPIContext.Call(uintptr(^uintptr(3)))
+		if ret != 0 {
+			return
+		}
+	}
+	// Windows 8.1 及更早环境的兼容回退。
+	setProcessDPIAware := user32.NewProc("SetProcessDPIAware")
+	if err := setProcessDPIAware.Find(); err == nil {
+		_, _, _ = setProcessDPIAware.Call()
 	}
 }
 
