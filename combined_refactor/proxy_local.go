@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/netip"
 	"strconv"
 	"strings"
 	"sync"
@@ -17,6 +18,7 @@ type proxyLocalTaskRequest struct {
 	FileName     string `json:"fileName"`
 	FileContent  string `json:"fileContent"`
 	FallbackPort int    `json:"fallbackPort"`
+	Ports        []int  `json:"ports"`
 	SNI          string `json:"sni"`
 	Host         string `json:"host"`
 	Path         string `json:"path"`
@@ -183,26 +185,88 @@ func parseProxyEndpoint(value string, fallbackPort int) (proxyCandidate, bool) {
 	return proxyCandidate{}, false
 }
 
-func parseProxyCandidates(raw string, fallbackPort int) []proxyCandidate {
+
+func normalizeProxyPorts(ports []int, fallbackPort int) []int {
 	fallbackPort = clampProxyInt(fallbackPort, 443, 1, 65535)
+	seen := make(map[int]struct{}, len(ports)+1)
+	out := make([]int, 0, len(ports)+1)
+	for _, port := range ports {
+		if port <= 0 || port > 65535 {
+			continue
+		}
+		if _, ok := seen[port]; ok {
+			continue
+		}
+		seen[port] = struct{}{}
+		out = append(out, port)
+	}
+	if len(out) == 0 {
+		out = append(out, fallbackPort)
+	}
+	return out
+}
+
+func parseProxyCandidates(raw string, fallbackPort int, selectedPorts []int) ([]proxyCandidate, error) {
+	const maxExpandedCandidates = 2000000
+
+	fallbackPort = clampProxyInt(fallbackPort, 443, 1, 65535)
+	ports := normalizeProxyPorts(selectedPorts, fallbackPort)
 	raw = strings.ReplaceAll(raw, "\r\n", "\n")
 	raw = strings.ReplaceAll(raw, "\r", "\n")
 	scanner := bufio.NewScanner(strings.NewReader(raw))
-	scanner.Buffer(make([]byte, 64*1024), 2*1024*1024)
+	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024)
 	seen := make(map[string]struct{})
-	result := make([]proxyCandidate, 0, 256)
+	result := make([]proxyCandidate, 0, 1024)
 
-	add := func(candidate proxyCandidate) {
+	add := func(candidate proxyCandidate) error {
 		candidate.Host = strings.TrimSpace(strings.Trim(candidate.Host, "[]"))
 		if candidate.Host == "" || candidate.Port <= 0 || candidate.Port > 65535 {
-			return
+			return nil
 		}
 		key := strings.ToLower(candidate.Host) + ":" + strconv.Itoa(candidate.Port)
 		if _, ok := seen[key]; ok {
-			return
+			return nil
+		}
+		if len(result) >= maxExpandedCandidates {
+			return fmt.Errorf("IP 段展开后超过 %d 个 IP:端口，请缩小网段或减少端口", maxExpandedCandidates)
 		}
 		seen[key] = struct{}{}
 		result = append(result, candidate)
+		return nil
+	}
+	addHostPorts := func(host string) error {
+		for _, port := range ports {
+			if err := add(proxyCandidate{Host: host, Port: port}); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	expandPrefix := func(prefix netip.Prefix) error {
+		prefix = prefix.Masked()
+		for addr := prefix.Addr(); addr.IsValid() && prefix.Contains(addr); addr = addr.Next() {
+			if err := addHostPorts(addr.String()); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	expandRange := func(start, end netip.Addr) error {
+		if !start.IsValid() || !end.IsValid() || start.BitLen() != end.BitLen() || end.Less(start) {
+			return fmt.Errorf("无效 IP 范围: %s-%s", start, end)
+		}
+		for addr := start; ; addr = addr.Next() {
+			if err := addHostPorts(addr.String()); err != nil {
+				return err
+			}
+			if addr == end {
+				break
+			}
+			if !addr.IsValid() {
+				return fmt.Errorf("IP 范围越界: %s-%s", start, end)
+			}
+		}
+		return nil
 	}
 
 	for scanner.Scan() {
@@ -215,13 +279,35 @@ func parseProxyCandidates(raw string, fallbackPort int) []proxyCandidate {
 			continue
 		}
 
+		// CIDR：例如 1.2.3.0/24。未显式写端口时，对所选扫描端口做笛卡尔展开。
+		if prefix, err := netip.ParsePrefix(strings.TrimSpace(line)); err == nil {
+			if err := expandPrefix(prefix); err != nil {
+				return nil, err
+			}
+			continue
+		}
+
+		// 完整 IP 范围：例如 1.2.3.1-1.2.3.254。
+		if strings.Count(line, "-") == 1 && !strings.ContainsAny(line, " \t,") {
+			parts := strings.SplitN(line, "-", 2)
+			if start, err1 := netip.ParseAddr(strings.TrimSpace(parts[0])); err1 == nil {
+				if end, err2 := netip.ParseAddr(strings.TrimSpace(parts[1])); err2 == nil {
+					if err := expandRange(start, end); err != nil {
+						return nil, err
+					}
+					continue
+				}
+			}
+		}
+
+		// 兼容旧版显式多端口：1.2.3.4:443,8443,2053。
 		if strings.Count(line, ":") == 1 && strings.Contains(line, ",") {
 			first := strings.IndexByte(line, ':')
 			host := strings.TrimSpace(line[:first])
-			ports := strings.Split(line[first+1:], ",")
-			allPorts := host != "" && len(ports) > 1
-			parsedPorts := make([]int, 0, len(ports))
-			for _, p := range ports {
+			portTexts := strings.Split(line[first+1:], ",")
+			allPorts := host != "" && len(portTexts) > 1
+			parsedPorts := make([]int, 0, len(portTexts))
+			for _, p := range portTexts {
 				port, err := strconv.Atoi(strings.TrimSpace(p))
 				if err != nil || port <= 0 || port > 65535 {
 					allPorts = false
@@ -231,45 +317,77 @@ func parseProxyCandidates(raw string, fallbackPort int) []proxyCandidate {
 			}
 			if allPorts {
 				for _, port := range parsedPorts {
-					add(proxyCandidate{Host: host, Port: port})
+					if err := add(proxyCandidate{Host: host, Port: port}); err != nil {
+						return nil, err
+					}
 				}
 				continue
 			}
 		}
 
+		// 显式 IP:端口 / [IPv6]:端口只测试指定端口。
 		if candidate, ok := parseProxyEndpoint(line, fallbackPort); ok {
-			add(candidate)
+			trimmed := strings.TrimSpace(strings.Trim(line, "\"'"))
+			explicitPort := strings.HasPrefix(trimmed, "[") || strings.Count(trimmed, ":") == 1
+			if explicitPort {
+				if err := add(candidate); err != nil {
+					return nil, err
+				}
+			} else {
+				if err := addHostPorts(candidate.Host); err != nil {
+					return nil, err
+				}
+			}
 			continue
 		}
 
+		// CSV: endpoint,... OR ip,port,...
 		if strings.Contains(line, ",") {
 			cells := strings.Split(line, ",")
 			for i := range cells {
 				cells[i] = strings.TrimSpace(cells[i])
 			}
-			if len(cells) > 0 {
-				if candidate, ok := parseProxyEndpoint(cells[0], fallbackPort); ok {
-					if len(cells) > 1 && !strings.Contains(cells[0], ":") {
-						if port, err := strconv.Atoi(cells[1]); err == nil && port > 0 && port <= 65535 {
-							candidate.Port = port
+			if len(cells) > 1 {
+				if host := strings.Trim(cells[0], "[]"); net.ParseIP(host) != nil {
+					if p, err := strconv.Atoi(cells[1]); err == nil && p > 0 && p <= 65535 {
+						if err := add(proxyCandidate{Host: host, Port: p}); err != nil {
+							return nil, err
 						}
+						continue
 					}
-					add(candidate)
+				}
+			}
+			if len(cells) > 0 {
+				if prefix, err := netip.ParsePrefix(cells[0]); err == nil {
+					if err := expandPrefix(prefix); err != nil {
+						return nil, err
+					}
+					continue
+				}
+				if candidate, ok := parseProxyEndpoint(cells[0], fallbackPort); ok {
+					if err := addHostPorts(candidate.Host); err != nil {
+						return nil, err
+					}
 					continue
 				}
 			}
 		}
 
+		// 空格分隔 IP 端口。
 		fields := strings.Fields(line)
 		if len(fields) >= 2 {
 			if port, err := strconv.Atoi(fields[1]); err == nil && port > 0 && port <= 65535 {
-				add(proxyCandidate{Host: strings.Trim(fields[0], "[]"), Port: port})
+				if err := add(proxyCandidate{Host: strings.Trim(fields[0], "[]"), Port: port}); err != nil {
+					return nil, err
+				}
 			}
 		}
 	}
-	return result
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return result, nil
 }
-
 func parseHTTPStatusLine(line string) int {
 	fields := strings.Fields(strings.TrimSpace(line))
 	if len(fields) < 2 || !strings.HasPrefix(strings.ToUpper(fields[0]), "HTTP/") {
@@ -522,7 +640,11 @@ func runProxyLocalTask(ctx context.Context, session *appSession, req proxyLocalT
 		session.sendWSMessage("error", "请先填写实际使用的 SNI")
 		return
 	}
-	candidates := parseProxyCandidates(req.FileContent, req.FallbackPort)
+	candidates, err := parseProxyCandidates(req.FileContent, req.FallbackPort, req.Ports)
+	if err != nil {
+		session.sendWSMessage("error", "候选 IP 解析失败: "+err.Error())
+		return
+	}
 	if len(candidates) == 0 {
 		session.sendWSMessage("error", "没有解析到有效的 IP:端口")
 		return
