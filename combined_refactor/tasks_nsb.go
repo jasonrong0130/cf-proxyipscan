@@ -624,29 +624,160 @@ func runNSBDownloadPhase(ctx context.Context, ip string, port int, enableTLS boo
 	return written, duration, ""
 }
 
+
 func runNSBDownloadSpeed(ctx context.Context, ip string, port int, enableTLS bool, testURL string) (float64, string) {
 	const (
-		preflightBytes    int64 = 64 * 1024
-		formalSpeedBytes  int64 = 1 * 1024 * 1024
-		formalMinBytes    int64 = 64 * 1024
-		preflightWindow         = 8 * time.Second
-		formalSpeedWindow       = 12 * time.Second
+		preflightBytes  int64 = 64 * 1024
+		preflightWindow       = 8 * time.Second
 	)
 
+	// 轻量预检只判断该入口能否真正拉取数据，不参与最终速度计算。
 	if _, _, preflightErr := runNSBDownloadPhase(ctx, ip, port, enableTLS, testURL, preflightBytes, preflightBytes, preflightWindow, "64KB预检"); preflightErr != "" {
 		return 0, preflightErr
 	}
 
-	written, duration, speedErr := runNSBDownloadPhase(ctx, ip, port, enableTLS, testURL, formalSpeedBytes, formalMinBytes, formalSpeedWindow, "1MB测速")
+	// 真实测速使用单条持续连接：先下载 512KB 预热 TCP，再统计后续持续传输。
+	// 这样可避免原先 1MB 短下载把 TCP 慢启动误算进结果，速度更接近日常代理/下载体验。
+	written, duration, speedErr := runNSBRealSpeedPhase(ctx, ip, port, enableTLS, testURL)
 	if speedErr != "" {
 		return 0, speedErr
 	}
 	if written <= 0 || duration <= 0 {
-		return 0, "1MB测速失败: 未收到有效下载数据"
+		return 0, "持续测速失败: 未收到有效下载数据"
 	}
 	return float64(written) / duration.Seconds() / 1024, ""
 }
 
+func runNSBRealSpeedPhase(ctx context.Context, ip string, port int, enableTLS bool, testURL string) (int64, time.Duration, string) {
+	const (
+		warmupBytes      int64 = 512 * 1024
+		maxMeasuredBytes int64 = 32 * 1024 * 1024
+		minMeasuredBytes int64 = 256 * 1024
+		measureWindow          = 8 * time.Second
+		overallTimeout         = 14 * time.Second
+	)
+
+	scheme := "http"
+	if enableTLS {
+		scheme = "https"
+	}
+	parsedURL, err := parseSpeedTestURL(testURL, scheme)
+	if err != nil {
+		return 0, 0, "持续测速失败: 测速地址解析失败: " + err.Error()
+	}
+
+	transport := &http.Transport{
+		DialContext: func(c context.Context, network, addr string) (net.Conn, error) {
+			return dialContextWithTimeout(c, "tcp", net.JoinHostPort(ip, strconv.Itoa(port)), 5*time.Second)
+		},
+		TLSHandshakeTimeout: 6 * time.Second,
+		TLSClientConfig:     tlsConfigWithRootCAs(parsedURL.Hostname()),
+		DisableCompression:  true,
+		DisableKeepAlives:   true,
+		ForceAttemptHTTP2:   false,
+		MaxIdleConns:        1,
+		MaxIdleConnsPerHost: 1,
+	}
+	defer transport.CloseIdleConnections()
+
+	phaseCtx, cancel := context.WithTimeout(ctx, overallTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(phaseCtx, "GET", parsedURL.String(), nil)
+	if err != nil {
+		return 0, 0, "持续测速失败: 请求构建失败"
+	}
+	req.Host = parsedURL.Host
+	req.Header.Set("User-Agent", "Mozilla/5.0")
+	req.Header.Set("Accept-Encoding", "identity")
+
+	client := http.Client{Transport: transport}
+	resp, err := client.Do(req)
+	if err != nil {
+		if ctx.Err() != nil {
+			return 0, 0, "测速任务已终止"
+		}
+		return 0, 0, "持续测速失败: " + classifyNSBSpeedNetworkError(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4096))
+		if resp.StatusCode == http.StatusTooManyRequests {
+			return 0, 0, fmt.Sprintf("持续测速失败: HTTP %d（速率限制）", resp.StatusCode)
+		}
+		return 0, 0, fmt.Sprintf("持续测速失败: HTTP %d", resp.StatusCode)
+	}
+
+	buf := make([]byte, 128*1024)
+	var warmed int64
+	var measured int64
+	var measuredStart time.Time
+	for {
+		n, readErr := resp.Body.Read(buf)
+		if n > 0 {
+			chunk := int64(n)
+			if warmed < warmupBytes {
+				need := warmupBytes - warmed
+				if chunk <= need {
+					warmed += chunk
+					chunk = 0
+				} else {
+					warmed = warmupBytes
+					chunk -= need
+				}
+				if warmed >= warmupBytes && measuredStart.IsZero() {
+					measuredStart = time.Now()
+				}
+			}
+			if chunk > 0 {
+				if measuredStart.IsZero() {
+					measuredStart = time.Now()
+				}
+				remaining := maxMeasuredBytes - measured
+				if chunk > remaining {
+					chunk = remaining
+				}
+				measured += chunk
+			}
+		}
+
+		if !measuredStart.IsZero() {
+			elapsed := time.Since(measuredStart)
+			if measured >= maxMeasuredBytes || elapsed >= measureWindow {
+				if measured < minMeasuredBytes {
+					return measured, elapsed, fmt.Sprintf("持续测速失败: 有效数据不足，仅收到 %.0fKB", float64(measured)/1024)
+				}
+				return measured, elapsed, ""
+			}
+		}
+
+		if readErr != nil {
+			if ctx.Err() != nil {
+				return 0, 0, "测速任务已终止"
+			}
+			if phaseCtx.Err() != nil {
+				if measuredStart.IsZero() {
+					return 0, 0, "持续测速失败: 预热超时"
+				}
+				elapsed := time.Since(measuredStart)
+				if measured >= minMeasuredBytes {
+					return measured, elapsed, ""
+				}
+				return measured, elapsed, fmt.Sprintf("持续测速失败: 超时，仅收到 %.0fKB 有效数据", float64(measured)/1024)
+			}
+			if readErr == io.EOF {
+				if measuredStart.IsZero() {
+					return 0, 0, "持续测速失败: 测速文件过小，未完成 512KB 预热"
+				}
+				elapsed := time.Since(measuredStart)
+				if measured >= minMeasuredBytes {
+					return measured, elapsed, ""
+				}
+				return measured, elapsed, fmt.Sprintf("持续测速失败: 测速文件数据不足，仅收到 %.0fKB 有效数据", float64(measured)/1024)
+			}
+			return measured, time.Since(measuredStart), "持续测速失败: " + classifyNSBSpeedNetworkError(readErr)
+		}
+	}
+}
 func isNSBPreflightFailure(speedErr string) bool {
 	return strings.HasPrefix(strings.TrimSpace(speedErr), "64KB预检失败")
 }
@@ -891,7 +1022,7 @@ func runNSBTask(ctx context.Context, session *appSession, fileName, fileContent,
 			res := &nsbResults[idx]
 			return runNSBDownloadSpeed(ctx, res.ipAddr, res.port, enableTLS, speedURL)
 		})
-		session.sendWSMessage("log", fmt.Sprintf("测速分阶段：候选 %d，已测 %d，64KB预检通过 %d，1MB测速有效 %d，速度达标 %d", len(nsbResults), speedStageTested, speedStagePreflightPassed, speedStageFormalPassed, speedStageQualified))
+		session.sendWSMessage("log", fmt.Sprintf("测速分阶段：候选 %d，已测 %d，64KB预检通过 %d，持续测速有效 %d，速度达标 %d", len(nsbResults), speedStageTested, speedStagePreflightPassed, speedStageFormalPassed, speedStageQualified))
 		if speedCanceled {
 			wasCanceled = true
 		}
@@ -971,7 +1102,7 @@ func runNSBSpeedBatch(ctx context.Context, session *appSession, rows []nsbScanMe
 		return
 	}
 
-	session.sendWSMessage("log", fmt.Sprintf("开始非标分级测速：%d 条记录，线程数=%d，目标上限=%d，测速阈值=%.2fMB/s（64KB预检 → 1MB测速）", len(results), maxWorkers, speedLimit, speedMin))
+	session.sendWSMessage("log", fmt.Sprintf("开始非标真实测速：%d 条记录，线程数=%d，目标上限=%d，测速阈值=%.2fMB/s（64KB预检 → 512KB预热 → 持续测速）", len(results), maxWorkers, speedLimit, speedMin))
 	reportNSBProgress(session, "speed", 0, len(results), "测速中")
 	speedStageTested := 0
 	speedStagePreflightPassed := 0

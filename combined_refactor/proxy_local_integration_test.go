@@ -16,7 +16,10 @@ func TestParseProxyCandidatesDeduplicatesAndKeepsPorts(t *testing.T) {
 		"5.6.7.8:443,2053,8443",
 		"9.9.9.9 2083",
 	}, "\n")
-	got := parseProxyCandidates(input, 443)
+	got, err := parseProxyCandidates(input, 443, nil)
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
 	if len(got) != 5 {
 		t.Fatalf("expected 5 unique candidates, got %d: %#v", len(got), got)
 	}
