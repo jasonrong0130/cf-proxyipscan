@@ -274,6 +274,13 @@ func parseProxyCandidates(raw string, fallbackPort int, selectedPorts []int) ([]
 		if line == "" || strings.HasPrefix(line, "#") || strings.HasPrefix(line, "//") {
 			continue
 		}
+		// 允许 CIDR 清单保留行尾标注，例如：1.2.3.0/24 # ASxxxx 香港。
+		if comment := strings.IndexByte(line, '#'); comment >= 0 {
+			line = strings.TrimSpace(line[:comment])
+			if line == "" {
+				continue
+			}
+		}
 		lower := strings.ToLower(line)
 		if strings.Contains(lower, "ip") && strings.Contains(lower, "port") && strings.Contains(line, ",") {
 			continue
