@@ -6,7 +6,7 @@ on:
       version:
         description: "Build version"
         required: false
-        default: "v0.1.0-dev"
+        default: "v1.0.0"
         type: string
       publish_release:
         description: "Publish a GitHub Release"
@@ -16,7 +16,7 @@ on:
       prerelease:
         description: "Mark release as pre-release"
         required: false
-        default: true
+        default: false
         type: boolean
   push:
     tags:
@@ -30,15 +30,11 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
         with:
           go-version: "1.25.4"
           cache-dependency-path: combined_refactor/go.sum
-
       - name: Go test
         working-directory: combined_refactor
         run: go test ./...
@@ -70,24 +66,11 @@ jobs:
             goarch: arm64
             ext: ""
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v6
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v6
         with:
           go-version: "1.25.4"
           cache-dependency-path: combined_refactor/go.sum
-
-      - name: Resolve version
-        id: version
-        shell: bash
-        run: |
-          version="${{ github.event.inputs.version }}"
-          if [ -z "$version" ]; then version="${GITHUB_REF_NAME}"; fi
-          if [ -z "$version" ]; then version="dev"; fi
-          echo "value=$version" >> "$GITHUB_OUTPUT"
-
       - name: Build
         working-directory: combined_refactor
         env:
@@ -97,16 +80,17 @@ jobs:
         run: |
           mkdir -p ../release_assets
           filename="proxyip-optimizer-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.ext }}"
-          go build -trimpath -ldflags "-s -w -X main.appVersion=${{ steps.version.outputs.value }}" -o "../release_assets/${filename}" .
+          if [ "${{ matrix.goos }}" = "windows" ]; then
+            go build -trimpath -ldflags "-s -w -H=windowsgui -X main.appVersion=${{ github.event.inputs.version }}" -o "../release_assets/${filename}" .
+          else
+            go build -trimpath -ldflags "-s -w -X main.appVersion=${{ github.event.inputs.version }}" -o "../release_assets/${filename}" .
+          fi
           cd ../release_assets
           sha256sum "$filename" | awk '{print $1}' > "${filename}.sha256"
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: proxyip-optimizer-${{ matrix.goos }}-${{ matrix.goarch }}
           path: release_assets/*
-          if-no-files-found: error
 
   release:
     name: Publish Release
@@ -114,38 +98,17 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.publish_release == 'true'
     runs-on: ubuntu-latest
     steps:
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           path: artifacts
           pattern: proxyip-optimizer-*
           merge-multiple: true
-
-      - name: Resolve release version
-        id: version
-        shell: bash
-        run: |
-          version="${{ github.event.inputs.version }}"
-          if [ -z "$version" ]; then version="${GITHUB_REF_NAME}"; fi
-          echo "value=$version" >> "$GITHUB_OUTPUT"
-
-      - name: Publish release
-        uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.value }}
+          tag_name: ${{ github.event.inputs.version || github.ref_name }}
           target_commitish: ${{ github.sha }}
-          name: "ProxyIP Optimizer ${{ steps.version.outputs.value }}"
-          body: |
-            ProxyIP Optimizer 本地优选器。
-
-            - Go 单文件后端 + 内嵌原生 Web UI
-            - Windows / macOS / Linux
-            - 默认仅监听 127.0.0.1
-            - 实际 SNI / HTTP/1.1 本地链路验证
-            - 多次复检，减少可用 ProxyIP 被误杀
+          name: "ProxyIP Optimizer ${{ github.event.inputs.version || github.ref_name }}"
           files: artifacts/*
-          draft: false
-          prerelease: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.prerelease == 'true' }}
-          fail_on_unmatched_files: true
+          prerelease: ${{ github.event.inputs.prerelease == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
