@@ -4,7 +4,10 @@ import "testing"
 
 func TestParseProxyCandidates(t *testing.T) {
 	input := "IP,Port\n1.2.3.4,443\n5.6.7.8:8443\n1.1.1.1\n9.9.9.9:443,2053\n"
-	rows := parseProxyCandidates(input, 443)
+	rows, err := parseProxyCandidates(input, 443, nil)
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
 	if len(rows) != 5 {
 		t.Fatalf("expected 5 candidates, got %d: %#v", len(rows), rows)
 	}
@@ -52,5 +55,42 @@ func TestClassifyHTTPResponse(t *testing.T) {
 	classifyProxyResult(&result, cfg, 1)
 	if result.Status != "success" || result.Stage != "http" || result.SuccessRate != 100 {
 		t.Fatalf("expected factual HTTP result, got %#v", result)
+	}
+}
+
+
+func TestParseProxyCIDRMultiPort(t *testing.T) {
+	rows, err := parseProxyCandidates("192.0.2.0/30\n", 443, []int{443, 2053, 8443})
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+	if len(rows) != 12 {
+		t.Fatalf("expected 12 expanded candidates, got %d", len(rows))
+	}
+	if rows[0].Host != "192.0.2.0" || rows[0].Port != 443 {
+		t.Fatalf("unexpected first candidate: %#v", rows[0])
+	}
+	if rows[11].Host != "192.0.2.3" || rows[11].Port != 8443 {
+		t.Fatalf("unexpected last candidate: %#v", rows[11])
+	}
+}
+
+func TestParseProxyRangeMultiPort(t *testing.T) {
+	rows, err := parseProxyCandidates("198.51.100.10-198.51.100.12\n", 443, []int{443, 2096})
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+	if len(rows) != 6 {
+		t.Fatalf("expected 6 expanded candidates, got %d", len(rows))
+	}
+}
+
+func TestExplicitPortOverridesSelectedPorts(t *testing.T) {
+	rows, err := parseProxyCandidates("203.0.113.8:8443\n", 443, []int{443, 2053})
+	if err != nil {
+		t.Fatalf("parse failed: %v", err)
+	}
+	if len(rows) != 1 || rows[0].Port != 8443 {
+		t.Fatalf("explicit port must override selected ports: %#v", rows)
 	}
 }
