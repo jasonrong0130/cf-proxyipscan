@@ -1,4 +1,4 @@
-module cfdata
+module github.com/jasonrong0130/cf-proxyipscan/combined_refactor
 
 go 1.25.4
 
@@ -10,4 +10,4 @@ require (
 
 require github.com/jchv/go-winloader v0.0.0-20250406163304-c1995be93bd1 // indirect
 
-require golang.org/x/sys v0.21.0 // indirect
+require golang.org/x/sys v0.21.0

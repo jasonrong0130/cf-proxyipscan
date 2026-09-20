@@ -8,8 +8,8 @@ func TestParseProxyCandidates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parse failed: %v", err)
 	}
-	if len(rows) != 5 {
-		t.Fatalf("expected 5 candidates, got %d: %#v", len(rows), rows)
+	if len(rows) != 10 {
+		t.Fatalf("expected 10 candidates with all default EDT ports, got %d: %#v", len(rows), rows)
 	}
 	if rows[0].Host != "1.2.3.4" || rows[0].Port != 443 {
 		t.Fatalf("unexpected first row: %#v", rows[0])
@@ -40,12 +40,25 @@ func TestNormalizeProxyConfigCapsExtremeConcurrency(t *testing.T) {
 	}
 }
 
-func TestClassifyRequiresHTTPForEligible(t *testing.T) {
+func TestClassifyAcceptsTLSWithoutTraceHTTP(t *testing.T) {
 	cfg := proxyProbeConfig{SNI: "example.com", Host: "example.com", EnableTLS: true}
 	result := proxyLocalResult{Attempts: 1, TCPSuccesses: 1, TLSSuccesses: 1, HTTPSuccesses: 0, TCPMS: 35}
 	classifyProxyResult(&result, cfg, 0)
-	if result.Status != "failed" || result.Stage != "tls" || result.SuccessRate != 0 {
-		t.Fatalf("TLS-only candidate must not be marked eligible, got %#v", result)
+	if result.Status != "success" || result.Stage != "tls" || result.SuccessRate != 100 {
+		t.Fatalf("TLS-reachable candidate must remain eligible when trace/HTTP enrichment fails, got %#v", result)
+	}
+}
+
+func TestDefaultEDTScanPorts(t *testing.T) {
+	want := []int{443, 2053, 2083, 2087, 2096, 8443}
+	got := normalizeProxyPorts(nil, 443)
+	if len(got) != len(want) {
+		t.Fatalf("default EDT ports = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("default EDT ports = %v, want %v", got, want)
+		}
 	}
 }
 
@@ -57,7 +70,6 @@ func TestClassifyHTTPResponse(t *testing.T) {
 		t.Fatalf("expected factual HTTP result, got %#v", result)
 	}
 }
-
 
 func TestParseProxyCIDRMultiPort(t *testing.T) {
 	rows, err := parseProxyCandidates("192.0.2.0/30\n", 443, []int{443, 2053, 8443})

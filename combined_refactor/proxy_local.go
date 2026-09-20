@@ -185,9 +185,11 @@ func parseProxyEndpoint(value string, fallbackPort int) (proxyCandidate, bool) {
 	return proxyCandidate{}, false
 }
 
-
 func normalizeProxyPorts(ports []int, fallbackPort int) []int {
 	fallbackPort = clampProxyInt(fallbackPort, 443, 1, 65535)
+	if len(ports) == 0 {
+		ports = []int{443, 2053, 2083, 2087, 2096, 8443}
+	}
 	seen := make(map[int]struct{}, len(ports)+1)
 	out := make([]int, 0, len(ports)+1)
 	for _, port := range ports {
@@ -542,8 +544,12 @@ func classifyProxyResult(result *proxyLocalResult, cfg proxyProbeConfig, _ int) 
 		result.Stage = "failed"
 	}
 
-	result.SuccessRate = int(float64(result.HTTPSuccesses) / float64(result.Attempts) * 100)
-	if result.HTTPSuccesses > 0 {
+	eligibleSuccesses := result.TLSSuccesses
+	if !cfg.EnableTLS {
+		eligibleSuccesses = result.HTTPSuccesses
+	}
+	result.SuccessRate = int(float64(eligibleSuccesses) / float64(result.Attempts) * 100)
+	if eligibleSuccesses > 0 {
 		result.Status = "success"
 		return
 	}
@@ -553,10 +559,8 @@ func classifyProxyResult(result *proxyLocalResult, cfg proxyProbeConfig, _ int) 
 		return
 	}
 	switch result.Stage {
-	case "tls":
-		result.Error = "TLS 已连接，但未收到 HTTP 响应"
 	case "tcp":
-		result.Error = "TCP 可达，但 TLS / HTTP 链路未完成"
+		result.Error = "TCP 可达，但 TLS 握手未完成"
 	default:
 		result.Error = "TCP 不可达"
 	}

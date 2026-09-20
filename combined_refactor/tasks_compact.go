@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
 	"math/rand"
 	"net"
@@ -18,8 +19,9 @@ const (
 	compactIPv4Threads        = 100
 	compactIPv4MaxEmptyRounds = 2
 	compactIPv4ConnectTimeout = time.Second
-	compactIPv4Port           = 80
 )
+
+var compactIPv4Ports = []int{443, 2053, 2083, 2087, 2096, 8443}
 
 type compactSubnetState struct {
 	subnet  string
@@ -232,12 +234,29 @@ func scanCompactIPv4(ctx context.Context, session *appSession, ipList []string, 
 			return
 		default:
 		}
-		dialer := &net.Dialer{Timeout: compactIPv4ConnectTimeout}
-		conn, err := dialer.DialContext(ctx, "tcp", net.JoinHostPort(ip, strconv.Itoa(compactIPv4Port)))
-		if err != nil {
+		matched := false
+		for _, port := range compactIPv4Ports {
+			dialer := &net.Dialer{Timeout: compactIPv4ConnectTimeout}
+			rawConn, err := dialer.DialContext(ctx, "tcp", net.JoinHostPort(ip, strconv.Itoa(port)))
+			if err != nil {
+				continue
+			}
+			_ = rawConn.SetDeadline(time.Now().Add(compactIPv4ConnectTimeout))
+			tlsConn := tls.Client(rawConn, &tls.Config{
+				ServerName: "speed.cloudflare.com",
+				RootCAs:    rootCAPool(),
+				MinVersion: tls.VersionTLS12,
+			})
+			err = tlsConn.HandshakeContext(ctx)
+			_ = tlsConn.Close()
+			if err == nil {
+				matched = true
+				break
+			}
+		}
+		if !matched {
 			return
 		}
-		conn.Close()
 		resultsMutex.Lock()
 		results = append(results, ip)
 		resultsMutex.Unlock()

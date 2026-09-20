@@ -1,10 +1,10 @@
 # CF优选IP筛选器
 
-一个轻量的 **本地 ProxyIP / Cloudflare 候选 IP 测试与筛选工具**。核心使用 Go，本地 Web UI 使用原生 HTML / CSS / JavaScript，不依赖 Electron。
+一个面向 Windows 的 **本地 ProxyIP / Cloudflare EDT 候选 IP 测试与筛选桌面工具**。核心使用 Go，界面通过内嵌 WebView2 呈现，不依赖 Electron，也不提供独立 Web 或 Android 版本。
 
 ## 当前定位
 
-VPS 端可以负责大规模海选；本工具负责在 Windows / macOS / Linux **当前真实网络**下进行本地测试、筛选、排序、测速和导出。
+VPS 端可以负责大规模海选；本工具负责在 Windows **当前真实网络**下进行本地测试、筛选、排序、测速和导出。唯一代码主线位于 `combined_refactor/`。
 
 本项目不再替用户把不同地区节点简单划分为“优质 / 可用 / 边缘”。香港、美国、日本等节点的物理距离不同，延迟数值本身只作为事实数据展示，是否适合使用由用户结合地区、线路、ASN、速度等自行判断。
 
@@ -13,8 +13,8 @@ VPS 端可以负责大规模海选；本工具负责在 Windows / macOS / Linux 
 - 默认每个 IP 测试 1 次；高级设置可手动改为 1–5 次。
 - SNI 必填；点击开始时未填写 SNI 会直接提示，不启动任务。
 - Host 默认跟随 SNI，仅在高级设置中允许单独覆盖。
-- “可优选”表示使用当前 SNI 完成 TCP → TLS → HTTP 并收到有效 HTTP 响应；其余归为失败。
-- HTTP 4xx / 5xx 只要真实收到响应仍可作为链路可达证据，不因状态码直接淘汰。
+- 默认检测 443、2053、2083、2087、2096、8443；任一端口完成 TCP → TLS 即进入可优选候选池。
+- HTTP 与 `/cdn-cgi/trace` 仅用于补充首包响应、机房、出口 IP 和 ASN；请求失败或 `colo` 为空不会淘汰已完成 TLS 的候选。
 - 记录 TCP、TLS、首包响应（TTFB）、Cloudflare 机房、出口 IP、ASN / 运营商和归属地。
 - 归属地优先使用出口信息；出口位置拿不到时再回退查询入口 IP。
 - 入口 / 出口 ASN 与组织信息使用本地 GeoLite2 ASN 数据库查询。
@@ -40,23 +40,17 @@ SNI、Host 等个人配置只保存在浏览器 `localStorage`，源码默认值
 
 ## 构建
 
-正式后端位于 `combined_refactor/`：
-
-```bash
-cd combined_refactor
-go build -trimpath -ldflags "-s -w" -o cf-ip-selector .
-```
-
-Windows：
+唯一 Go 模块和程序入口位于 `combined_refactor/`。Windows amd64 构建：
 
 ```bash
 cd combined_refactor
 set GOOS=windows
 set GOARCH=amd64
-go build -trimpath -ldflags "-s -w" -o cf-ip-selector.exe .
+set CGO_ENABLED=0
+go build -trimpath -ldflags "-s -w -H=windowsgui" -o cf-ip-selector.exe .
 ```
 
-默认本地 Web 地址为 `http://127.0.0.1:13335`，程序默认只监听本机回环地址，不会直接暴露到局域网或公网。
+程序使用 Microsoft Edge WebView2 Runtime 显示桌面窗口；内部服务仅监听本机回环地址，不会直接暴露到局域网或公网。
 
 ## License / Attribution
 
